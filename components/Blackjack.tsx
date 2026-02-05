@@ -265,7 +265,8 @@ export const Blackjack: React.FC<BlackjackProps> = ({ drunkMode, zoneMode, cash,
 
   // Helper logic for button states in tutorial
   const canHit = !tutorialMode || (
-      (TUTORIAL_SCENARIOS[tutorialStep]?.forceAction === 'hit') ||
+      // Allow hitting only if scenario requires it AND we haven't reached the "Stand" phase
+      ((TUTORIAL_SCENARIOS[tutorialStep]?.forceAction === 'hit') && tutorialSubStep === 0) ||
       (tutorialStep === 3 && tutorialSubStep === 1) // Hand 4 second hit
   );
 

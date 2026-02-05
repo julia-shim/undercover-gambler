@@ -1,11 +1,30 @@
 import { Suit, Card, InteractionEvent } from './types';
 
-export const INITIAL_DEBT = 2500;
-export const INITIAL_CASH = 700;
-export const INITIAL_BANK = 500; // Enough for a few days of bills
+// Global Game Constants
 export const MAX_DAYS = 7;
 export const SUSPICION_LIMIT = 100;
 export const DAILY_EXPENSES = 75; // Deducted from bank daily
+
+// Difficulty Specifics
+// Beginner
+export const BEGINNER_DEBT = 1000;
+export const BEGINNER_CASH = 400;
+export const BEGINNER_BANK = 300;
+
+// Standard
+export const STANDARD_DEBT = 2500;
+export const STANDARD_CASH = 700;
+export const STANDARD_BANK = 400;
+
+// Hard (TBD)
+export const HARD_DEBT = 0;
+export const HARD_CASH = 0;
+export const HARD_BANK = 0;
+
+// Legacy exports for type safety if needed, though they will be replaced in usage
+export const INITIAL_DEBT = STANDARD_DEBT;
+export const INITIAL_CASH = STANDARD_CASH;
+export const INITIAL_BANK = STANDARD_BANK;
 
 // Costs
 export const COST_SHAVE = 15;

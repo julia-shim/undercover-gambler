@@ -6,9 +6,8 @@ import {
   GameMode
 } from './types';
 import { 
-  INITIAL_CASH, 
-  INITIAL_BANK, 
-  INITIAL_DEBT, 
+  BEGINNER_DEBT, BEGINNER_CASH, BEGINNER_BANK,
+  STANDARD_DEBT, STANDARD_CASH, STANDARD_BANK,
   MAX_DAYS, 
   SUSPICION_LIMIT,
   DAILY_EXPENSES,
@@ -77,9 +76,9 @@ const INITIAL_STATE: PlayerState = {
     difficultyCompleted: { beginner: false, standard: false },
     beginnerTutorialActive: true,
     
-    cash: INITIAL_CASH,
-    bankBalance: INITIAL_BANK,
-    debt: INITIAL_DEBT,
+    cash: STANDARD_CASH,
+    bankBalance: STANDARD_BANK,
+    debt: STANDARD_DEBT,
     totalPaid: 0,
     suspicion: 0,
     day: 1,
@@ -260,9 +259,9 @@ export default function App() {
           // Always restart Beginner Mode fresh, even if completed before
           updateState({ 
               mode: GameMode.BEGINNER, 
-              cash: 400, 
-              bankBalance: 300, 
-              debt: 1000, 
+              cash: BEGINNER_CASH, 
+              bankBalance: BEGINNER_BANK, 
+              debt: BEGINNER_DEBT, 
               maxDays: 3, 
               beginnerTutorialActive: true,
               todoList: [
@@ -278,10 +277,14 @@ export default function App() {
           setPhoneMode('TODO');
           setPhoneNotification(true);
           setPhoneTutorialDismissed(false);
-          // Only add log once we reach home
           
       } else if (mode === GameMode.STANDARD) {
-          updateState({ mode: GameMode.STANDARD });
+          updateState({ 
+              mode: GameMode.STANDARD,
+              cash: STANDARD_CASH,
+              bankBalance: STANDARD_BANK,
+              debt: STANDARD_DEBT
+          });
           const firstTask = randomizeDailyRoutine();
           setPhase(firstTask);
           addLog("Wake up. Head throbbing.");
@@ -311,8 +314,15 @@ export default function App() {
   // --- BEGINNER MODE HANDLERS ---
   const handleCookingComplete = (success: boolean) => {
       completeTodo('cook');
-      if (success) addLog("Dinner cooked perfectly. Sarah smiled.");
-      else addLog("Burnt the stew. Sarah is disappointed.");
+      if (success) {
+          addLog("Dinner cooked perfectly. Sarah smiled.");
+          updateState({ suspicion: Math.max(0, state.suspicion - 10) });
+      }
+      else {
+          addLog("Burnt the stew. Sarah is disappointed.");
+          updateState({ suspicion: state.suspicion + 10 });
+          triggerShake();
+      }
       
       setPhase(GamePhase.NEXT_DAY_TRANSITION);
   };
@@ -461,13 +471,10 @@ export default function App() {
               addLog("Withdrew $100. (+Suspicion)");
           }
       } else if (action === 'loan') {
-          if (state.loansTaken >= MAX_LOANS) {
-              addLog("Vinnie denied the loan.");
-              triggerShake();
-              return;
-          }
-          updateState({ cash: state.cash + 2500, debt: state.debt + 3750, loansTaken: state.loansTaken + 1 });
-          addLog(`Took shark loan #${state.loansTaken + 1}.`);
+          // FEATURE REMOVED
+          addLog("Vinnie denied the loan.");
+          triggerShake();
+          return;
       } else if (action === 'gift') {
           if (state.cash >= COST_GIFT) {
               updateState({ 
@@ -655,6 +662,12 @@ export default function App() {
               addLog("Vinnie: \"I said $200. Don't play games.\"");
               triggerShake();
               return;
+          }
+          // Special Logic for Day 2 Beginner if they can't pay
+          if (state.mode === GameMode.BEGINNER && state.day === 2 && amountToHandle < 200 && state.cash < 200) {
+               addLog(`Vinnie: "Short? I'll let it slide... this time."`);
+               finishDrop(); // Proceed anyway
+               return;
           }
       }
 
@@ -1255,9 +1268,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4">
                     <Button onClick={() => handleBanking('deposit')} variant="secondary" icon={ArrowRightLeft}>Deposit $100</Button>
                     <Button onClick={() => handleBanking('withdraw')} variant="secondary" icon={Banknote}>Withdraw $100</Button>
-                    <Button onClick={() => handleBanking('loan')} variant="danger" icon={AlertTriangle} disabled={state.loansTaken >= MAX_LOANS}>
-                        Shark Loan ($2500) {state.loansTaken >= MAX_LOANS ? '(MAXED)' : ''}
-                    </Button>
+                    {/* Shark Loan Removed */}
                     <Button onClick={() => handleBanking('gift')} variant="primary" icon={Gift}>
                         Buy Flowers (${COST_GIFT})
                     </Button>
@@ -1356,9 +1367,10 @@ export default function App() {
                         onClick={handlePayment} 
                         variant="danger" 
                         fullWidth 
-                        disabled={amountToHandle === 0 || (isBeginnerEarly && amountToHandle < 200 && state.cash >= 200)}
+                        // Allow button click even if 0, but handle in function
+                        disabled={state.mode === GameMode.BEGINNER && state.day === 1 && amountToHandle < 200}
                     >
-                        HAND OVER CASH
+                        {state.mode === GameMode.BEGINNER && state.day === 2 && amountToHandle < 200 && state.cash < 200 ? "PLEAD WITH VINNIE" : "HAND OVER CASH"}
                     </Button>
                     <Button onClick={finishDrop} variant="ghost" fullWidth>Walk Away (Consequences)</Button>
                  </div>
