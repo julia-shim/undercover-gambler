@@ -1,19 +1,41 @@
 
+export enum GameMode {
+  BEGINNER = 'BEGINNER',
+  STANDARD = 'STANDARD',
+  HARD = 'HARD'
+}
+
 export enum GamePhase {
   INTRO = 'INTRO',
-  MAKE_BED = 'MAKE_BED', // QTE Task 1 Option
-  WATER_PLANTS = 'WATER_PLANTS', // New Task
-  MAKE_LUNCH = 'MAKE_LUNCH', // QTE Task 2 Option
-  FIND_KEYS = 'FIND_KEYS', // QTE Task 2 Option
+  DIFFICULTY_SELECT = 'DIFFICULTY_SELECT', 
+  TUTORIAL = 'TUTORIAL', 
+  
+  // Standard Mode Phases
+  MAKE_BED = 'MAKE_BED',
+  WATER_PLANTS = 'WATER_PLANTS',
+  MAKE_LUNCH = 'MAKE_LUNCH',
+  FIND_KEYS = 'FIND_KEYS',
   MORNING_ROUTINE = 'MORNING_ROUTINE',
   MORNING_CHOICE = 'MORNING_CHOICE', 
   COMMUTE_MINIGAME = 'COMMUTE_MINIGAME',
+  
+  // Beginner Mode Specific Phases
+  BEGINNER_INTRO_VINNIE_CALL = 'BEGINNER_INTRO_VINNIE_CALL', // New Phase
+  BEGINNER_DAY1_HOME = 'BEGINNER_DAY1_HOME',
+  BEGINNER_DAY1_BANK = 'BEGINNER_DAY1_BANK',
+  BEGINNER_BLACKJACK = 'BEGINNER_BLACKJACK',
+  COOKING_MINIGAME = 'COOKING_MINIGAME',
+  DRIVING_MINIGAME = 'DRIVING_MINIGAME',
+  
+  // Shared Phases
   BANKING = 'BANKING',
   CASINO = 'CASINO',
-  PICKUP_DECISION = 'PICKUP_DECISION', // New choice at 3:00 PM
+  PICKUP_DECISION = 'PICKUP_DECISION',
   THE_DROP = 'THE_DROP',
   EVENING_INTERROGATION = 'EVENING_INTERROGATION',
   NEXT_DAY_TRANSITION = 'NEXT_DAY_TRANSITION',
+  
+  // End States
   GAME_OVER_DEBT = 'GAME_OVER_DEBT',
   GAME_OVER_MISSED_PAYMENT = 'GAME_OVER_MISSED_PAYMENT',
   GAME_OVER_WIFE = 'GAME_OVER_WIFE',
@@ -21,6 +43,10 @@ export enum GamePhase {
 }
 
 export interface PlayerState {
+  mode: GameMode;
+  difficultyCompleted: { beginner: boolean; standard: boolean };
+  beginnerTutorialActive: boolean; // True on first run of beginner
+  
   cash: number;
   bankBalance: number;
   debt: number;
@@ -37,6 +63,9 @@ export interface PlayerState {
   skippedPickup: boolean;
   callsMadeToday: number;
   hasCalledInCasino: boolean;
+  
+  // Beginner Mode Specifics
+  todoList: { id: string, text: string, completed: boolean }[];
 }
 
 export enum Suit {

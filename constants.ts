@@ -1,7 +1,7 @@
 import { Suit, Card, InteractionEvent } from './types';
 
-export const INITIAL_DEBT = 5000;
-export const INITIAL_CASH = 500;
+export const INITIAL_DEBT = 2500;
+export const INITIAL_CASH = 700;
 export const INITIAL_BANK = 500; // Enough for a few days of bills
 export const MAX_DAYS = 7;
 export const SUSPICION_LIMIT = 100;

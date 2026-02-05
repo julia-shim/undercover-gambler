@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   GamePhase, 
   PlayerState,
-  InteractionEvent
+  InteractionEvent,
+  GameMode
 } from './types';
 import { 
   INITIAL_CASH, 
-  INITIAL_BANK,
+  INITIAL_BANK, 
   INITIAL_DEBT, 
   MAX_DAYS, 
   SUSPICION_LIMIT,
@@ -24,7 +25,7 @@ import {
   SUSPICION_INCREASE_WITHDRAW
 } from './constants';
 import { Blackjack } from './components/Blackjack';
-import { BedMaking, LunchMaking, FindKeys, WaterPlants } from './components/QTEs';
+import { BedMaking, LunchMaking, FindKeys, WaterPlants, CookingMinigame, DrivingMinigame } from './components/QTEs';
 import { Button, ProgressBar, StatBadge } from './components/UI';
 import { 
   Coffee, 
@@ -47,18 +48,35 @@ import {
   Dices,
   Gift,
   Phone,
-  Skull
+  Skull,
+  BookOpen,
+  HelpCircle,
+  Eye,
+  HandMetal,
+  Lock,
+  Unlock,
+  Check,
+  Moon,
+  Info,
+  PhoneOff
 } from 'lucide-react';
 
 // --- Stock Photos ---
 const IMG_SARAH_SAD = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop"; 
 const IMG_LEO_SAD = "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=1000&auto=format&fit=crop"; 
 const IMG_CASINO = "https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=1000&auto=format&fit=crop"; 
+const IMG_KITCHEN = "https://images.unsplash.com/photo-1556910103-1c02745a30bf?q=80&w=1000&auto=format&fit=crop";
+// Updated reliable dark bedroom image
+const IMG_BEDROOM = "https://images.unsplash.com/photo-1505691938895-1758d7fab5c0?q=80&w=1000&auto=format&fit=crop";
 
 // --- Phone Types ---
-type PhoneMode = 'LOCKED' | 'NOTES' | 'INCOMING_CALL' | 'IN_CALL';
+type PhoneMode = 'LOCKED' | 'NOTES' | 'INCOMING_CALL' | 'IN_CALL' | 'TODO';
 
 const INITIAL_STATE: PlayerState = {
+    mode: GameMode.STANDARD,
+    difficultyCompleted: { beginner: false, standard: false },
+    beginnerTutorialActive: true,
+    
     cash: INITIAL_CASH,
     bankBalance: INITIAL_BANK,
     debt: INITIAL_DEBT,
@@ -74,24 +92,112 @@ const INITIAL_STATE: PlayerState = {
     handsPlayedToday: 0,
     skippedPickup: false,
     callsMadeToday: 0,
-    hasCalledInCasino: false
+    hasCalledInCasino: false,
+    todoList: []
 };
 
+// --- Helper Component for Intro ---
+const VinnieCallIntro: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+    const [step, setStep] = useState<'fade-in' | 'ringing' | 'talking' | 'fade-out'>('fade-in');
+    
+    useEffect(() => {
+        // Step 1: Fade In immediately
+        const timer1 = setTimeout(() => setStep('ringing'), 1000);
+        return () => clearTimeout(timer1);
+    }, []);
+
+    const handleAnswer = () => {
+        setStep('talking');
+        // Step 3: Talk then fade out
+        setTimeout(() => {
+            setStep('fade-out');
+            setTimeout(onComplete, 2000); // Wait for fade out
+        }, 5000);
+    };
+
+    return (
+        <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-black transition-opacity duration-1000 ${step === 'fade-in' || step === 'fade-out' ? 'opacity-100' : 'opacity-100'}`}>
+            <div className={`transition-opacity duration-1000 ${step === 'fade-in' || step === 'fade-out' ? 'opacity-0' : 'opacity-100'}`}>
+                {step !== 'fade-out' && step !== 'fade-in' && (
+                    <div className="w-80 h-[550px] bg-black border-4 border-slate-800 rounded-[2.5rem] shadow-[0_0_50px_rgba(255,255,255,0.1)] flex flex-col overflow-hidden relative animate-slide-up">
+                        {/* Status Bar */}
+                        <div className="w-full h-8 bg-slate-950 flex justify-between items-center px-6 pt-2 z-10 text-[10px] text-slate-400">
+                             <span>07:00 AM</span>
+                             <div className="flex gap-1"><Signal size={10} /><Battery size={10} /></div>
+                        </div>
+
+                        {step === 'ringing' && (
+                            <div className="flex-1 flex flex-col items-center justify-center space-y-8 p-6 bg-slate-900/50 backdrop-blur">
+                                <div className="flex flex-col items-center animate-pulse">
+                                    <div className="w-24 h-24 rounded-full bg-slate-700 mb-4 flex items-center justify-center border-2 border-slate-600">
+                                        <Skull size={48} className="text-slate-400" />
+                                    </div>
+                                    <h2 className="text-3xl font-serif text-white tracking-widest">UNKNOWN</h2>
+                                    <p className="text-rose-500 text-sm tracking-widest uppercase">Incoming Call...</p>
+                                </div>
+                                <button 
+                                    onClick={handleAnswer}
+                                    className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(5,150,105,0.5)] hover:scale-110 transition-transform animate-bounce"
+                                >
+                                    <Phone size={32} className="text-white fill-current" />
+                                </button>
+                            </div>
+                        )}
+
+                        {step === 'talking' && (
+                             <div className="flex-1 flex flex-col items-center justify-between py-12 px-6 bg-slate-900/90">
+                                 <div className="text-center">
+                                     <span className="text-emerald-500 text-xs tracking-widest">CONNECTED</span>
+                                     <div className="mt-4 text-xs font-mono text-slate-500">00:01</div>
+                                 </div>
+                                 
+                                 <div className="relative">
+                                     <div className="absolute -inset-4 bg-rose-500/10 blur-xl rounded-full animate-pulse"></div>
+                                     <p className="relative text-xl font-serif text-white text-center italic leading-relaxed">
+                                        "I better have my money in 3 days. Or the alley gets another stain."
+                                     </p>
+                                 </div>
+
+                                 <div className="w-20 h-20 bg-rose-900/50 rounded-full flex items-center justify-center border border-rose-800">
+                                     <PhoneOff size={32} className="text-rose-400" />
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function App() {
-  const [state, setState] = useState<PlayerState>(INITIAL_STATE);
+  const [state, setState] = useState<PlayerState>(() => {
+      // Load difficulty completion from local storage if available
+      const saved = localStorage.getItem('undercover_gambler_save');
+      if (saved) {
+          const parsed = JSON.parse(saved);
+          return { ...INITIAL_STATE, difficultyCompleted: parsed.difficultyCompleted || { beginner: false, standard: false } };
+      }
+      return INITIAL_STATE;
+  });
+  
   const [phase, setPhase] = useState<GamePhase>(GamePhase.INTRO);
   const [logs, setLogs] = useState<{id: number, text: string, time: string}[]>([]);
   const [currentEvent, setCurrentEvent] = useState<InteractionEvent | null>(null);
   const [shake, setShake] = useState(false);
   const [amountToHandle, setAmountToHandle] = useState(0); 
-  
+  const [tutorialStep, setTutorialStep] = useState(0);
+
+  // Beginner Mode UI State
+  const [bankTutorialStep, setBankTutorialStep] = useState(0);
+  const [phoneTutorialDismissed, setPhoneTutorialDismissed] = useState(false);
+
   // Phone State
   const [phoneMode, setPhoneMode] = useState<PhoneMode>('NOTES');
   const [phoneNotification, setPhoneNotification] = useState(false);
   const notesEndRef = useRef<HTMLDivElement>(null);
 
   // Determine Daily QTEs
-  // We will store the "Task 2" in a ref or state to know what comes after Task 1
   const [nextQTE, setNextQTE] = useState<GamePhase>(GamePhase.MAKE_LUNCH);
 
   const triggerShake = () => {
@@ -121,6 +227,11 @@ export default function App() {
       return newState;
     });
   };
+  
+  // Persist difficulty unlocks
+  useEffect(() => {
+      localStorage.setItem('undercover_gambler_save', JSON.stringify({ difficultyCompleted: state.difficultyCompleted }));
+  }, [state.difficultyCompleted]);
 
   useEffect(() => {
     if (state.suspicion >= SUSPICION_LIMIT && phase !== GamePhase.GAME_OVER_WIFE) {
@@ -130,32 +241,94 @@ export default function App() {
   }, [state.suspicion, phase]);
 
   const resetGame = () => {
-      setState(INITIAL_STATE);
+      // Keep difficulty unlocks
+      const unlocks = state.difficultyCompleted;
+      setState({ ...INITIAL_STATE, difficultyCompleted: unlocks });
       setLogs([]);
       setPhase(GamePhase.INTRO);
       setPhoneMode('NOTES');
       setPhoneNotification(false);
+      setPhoneTutorialDismissed(false);
+  };
+
+  const startDifficultySelect = () => {
+      setPhase(GamePhase.DIFFICULTY_SELECT);
+  }
+
+  const selectDifficulty = (mode: GameMode) => {
+      if (mode === GameMode.BEGINNER) {
+          // Always restart Beginner Mode fresh, even if completed before
+          updateState({ 
+              mode: GameMode.BEGINNER, 
+              cash: 400, 
+              bankBalance: 300, 
+              debt: 1000, 
+              maxDays: 3, 
+              beginnerTutorialActive: true,
+              todoList: [
+                  {id: 'bank', text: 'Go to Bank', completed: false},
+                  {id: 'casino', text: 'Go to Casino', completed: false},
+                  {id: 'pay', text: 'Pay Vinnie', completed: false},
+                  {id: 'sarah', text: 'Talk to Sarah', completed: false},
+              ]
+          });
+          // Transition to Intro Call instead of Home directly
+          setPhase(GamePhase.BEGINNER_INTRO_VINNIE_CALL); 
+          
+          setPhoneMode('TODO');
+          setPhoneNotification(true);
+          setPhoneTutorialDismissed(false);
+          // Only add log once we reach home
+          
+      } else if (mode === GameMode.STANDARD) {
+          updateState({ mode: GameMode.STANDARD });
+          const firstTask = randomizeDailyRoutine();
+          setPhase(firstTask);
+          addLog("Wake up. Head throbbing.");
+      }
+  };
+
+  const startTutorial = () => {
+      setPhase(GamePhase.TUTORIAL);
+      setTutorialStep(0);
   };
 
   const randomizeDailyRoutine = () => {
-      // Task 1 is always Make Bed now (Coffee removed)
       const selectedTask1 = GamePhase.MAKE_BED;
-      
-      // Pick Task 2
       const task2Options = [GamePhase.MAKE_LUNCH, GamePhase.FIND_KEYS];
       const selectedTask2 = task2Options[Math.floor(Math.random() * task2Options.length)];
-      
       setNextQTE(selectedTask2);
       return selectedTask1;
   };
 
-  const startGame = () => {
-    const firstTask = randomizeDailyRoutine();
-    setPhase(firstTask);
-    addLog("Wake up. Head throbbing.");
+  // --- QTE HANDLERS ---
+  const completeTodo = (id: string) => {
+      updateState({ 
+          todoList: state.todoList.map(t => t.id === id ? {...t, completed: true} : t) 
+      });
   };
 
-  // --- QTE HANDLERS ---
+  // --- BEGINNER MODE HANDLERS ---
+  const handleCookingComplete = (success: boolean) => {
+      completeTodo('cook');
+      if (success) addLog("Dinner cooked perfectly. Sarah smiled.");
+      else addLog("Burnt the stew. Sarah is disappointed.");
+      
+      setPhase(GamePhase.NEXT_DAY_TRANSITION);
+  };
+
+  const handleDrivingComplete = (success: boolean) => {
+      completeTodo('drive');
+      if (success) {
+          addLog("Leo delivered safely. Time to gamble.");
+          setPhase(GamePhase.BANKING);
+      } else {
+          addLog("Fender bender. Late. Vinnie won't like this.");
+          setPhase(GamePhase.BANKING);
+      }
+  };
+
+  // --- STANDARD GAME LOGIC ---
 
   const handleTask1Complete = (success: boolean, logSuccess: string, logFail: string) => {
       const timeCost = 15;
@@ -196,11 +369,10 @@ export default function App() {
       pickQuestion();
   };
 
-  // Wrappers for specific components
+  // Wrappers
   const handleBedComplete = (s: boolean) => handleTask1Complete(s, "Made the bed. A small victory.", "Left the sheets messy. Sarah will notice.");
-  
-  const handleLunchComplete = (s: boolean) => handleTask2Complete(s, "Leo's lunch packed. Just how he likes it.", "Messed up the sandwich. He'll go hungry.");
-  const handleKeysComplete = (s: boolean) => handleTask2Complete(s, "Found the keys immediately.", "Couldn't find keys. Panic. Lost time.");
+  const handleLunchComplete = (s: boolean) => handleTask2Complete(s, "Leo's lunch packed.", "Messed up the sandwich.");
+  const handleKeysComplete = (s: boolean) => handleTask2Complete(s, "Found the keys immediately.", "Couldn't find keys. Panic.");
 
 
   // --- ROUTINE ACTIONS ---
@@ -246,8 +418,6 @@ export default function App() {
   };
 
   const handleCommute = (safe: boolean) => {
-    // Current time is roughly 8:00 AM (480)
-    
     if (safe) {
       if (state.cash < COST_COMMUTE_SAFE) {
           addLog("Gas tank empty. Forced to risk it.");
@@ -258,25 +428,18 @@ export default function App() {
           suspicion: Math.max(0, state.suspicion - 5), 
           cash: state.cash - COST_COMMUTE_SAFE,
           zoneMode: false,
-          time: 570 // Arrive at 9:30 AM
+          time: 570 
       });
       addLog("Drove safe. Arrived at Casino: 9:30 AM.");
     } else {
       const success = Math.random() > 0.4;
       if (success) {
-        updateState({ 
-            zoneMode: true,
-            time: 540 // Arrive at 9:00 AM (Reward)
-        });
+        updateState({ zoneMode: true, time: 540 });
         addLog("Drove like a maniac. Arrived early: 9:00 AM.");
       } else {
-        updateState({ 
-            suspicion: state.suspicion + 15, 
-            zoneMode: false,
-            time: 570 // Late anyway due to traffic stop/near miss
-        });
+        updateState({ suspicion: state.suspicion + 15, zoneMode: false, time: 570 });
         triggerShake();
-        addLog("Near miss on the highway. Late anyway: 9:30 AM.");
+        addLog("Near miss. Late anyway: 9:30 AM.");
       }
     }
     setPhase(GamePhase.BANKING);
@@ -295,31 +458,38 @@ export default function App() {
                   bankBalance: state.bankBalance - 100,
                   suspicion: state.suspicion + SUSPICION_INCREASE_WITHDRAW
               });
-              addLog("Withdrew $100. Paper trail created. (+Suspicion)");
+              addLog("Withdrew $100. (+Suspicion)");
           }
       } else if (action === 'loan') {
           if (state.loansTaken >= MAX_LOANS) {
-              addLog("Vinnie denied the loan. 'Pay what you owe first.'");
+              addLog("Vinnie denied the loan.");
               triggerShake();
               return;
           }
-          updateState({ cash: state.cash + 500, debt: state.debt + 750, loansTaken: state.loansTaken + 1 });
-          addLog(`Took shark loan #${state.loansTaken + 1}. Soul sold.`);
+          updateState({ cash: state.cash + 2500, debt: state.debt + 3750, loansTaken: state.loansTaken + 1 });
+          addLog(`Took shark loan #${state.loansTaken + 1}.`);
       } else if (action === 'gift') {
           if (state.cash >= COST_GIFT) {
               updateState({ 
                   cash: state.cash - COST_GIFT, 
                   suspicion: Math.max(0, state.suspicion - SUSPICION_REDUCTION_GIFT) 
               });
-              addLog("Bought flowers for Sarah. Guilt money.");
+              addLog("Bought flowers for Sarah.");
           } else {
-              addLog("Can't afford the flowers. Pathetic.");
+              addLog("Can't afford the flowers.");
           }
       }
   };
 
   const finishBanking = () => {
-      updateState({ hasCalledInCasino: false }); // Reset call flag for new session
+      if (state.mode === GameMode.BEGINNER && state.beginnerTutorialActive && state.day === 1) {
+          completeTodo('bank');
+          setPhase(GamePhase.BEGINNER_BLACKJACK);
+          return;
+      }
+      if (state.mode === GameMode.BEGINNER) completeTodo('bank');
+      
+      updateState({ hasCalledInCasino: false });
       setPhase(GamePhase.CASINO);
   };
 
@@ -333,7 +503,6 @@ export default function App() {
 
   const handleCallHome = () => {
       const newCalls = state.callsMadeToday + 1;
-      
       if (state.callsMadeToday < 2) {
           if (state.suspicion > 0) {
               updateState({ 
@@ -341,23 +510,15 @@ export default function App() {
                   time: state.time + 10,
                   callsMadeToday: newCalls
               });
-              addLog("Called home. 'Just checking in.' She sounded tired.");
+              addLog("Called home. Just checking in.");
           } else {
-              updateState({ 
-                  time: state.time + 10,
-                  callsMadeToday: newCalls
-              });
-              addLog("Called home. No need, she trusts you right now.");
+              updateState({ time: state.time + 10, callsMadeToday: newCalls });
+              addLog("Called home. No need.");
           }
       } else {
-          // 3rd call or more
-          updateState({
-              suspicion: state.suspicion + 10,
-              time: state.time + 10,
-              callsMadeToday: newCalls
-          });
+          updateState({ suspicion: state.suspicion + 10, time: state.time + 10, callsMadeToday: newCalls });
           triggerShake();
-          addLog("Called home again. 'Why do you keep calling? What did you do?'");
+          addLog("Called home again. She's annoyed.");
       }
   };
 
@@ -365,22 +526,38 @@ export default function App() {
       setPhoneMode('NOTES');
       setPhoneNotification(false);
 
+      if (state.mode === GameMode.BEGINNER && state.day === 1) {
+          // Scripted response for Beginner Day 1
+          completeTodo('sarah');
+          if (responseType === 'truth') {
+             updateState({ suspicion: state.suspicion + 40 });
+             addLog("Told truth. She's horrified.");
+          } else if (responseType === 'lie_work') {
+              // "Hung out with friends" equiv
+              addLog("Lied: Friends. She bought it.");
+          } else {
+             updateState({ suspicion: state.suspicion + 10 });
+             addLog("Lied: Bar. She's suspicious.");
+          }
+          return;
+      }
+
+      // Standard Logic
       if (responseType === 'truth') {
           updateState({ suspicion: state.suspicion + 40 });
-          addLog("Call: Told Sarah you're gambling. Silence on the line.");
+          addLog("Call: Told Truth. (+40 Sus)");
           triggerShake();
       } else if (responseType === 'hangup') {
           updateState({ suspicion: state.suspicion + 15 });
-          addLog("Call: Sent Sarah to voicemail. Risky.");
+          addLog("Call: Sent to VM. Risky.");
       } else {
-          // Lies
           const success = Math.random() > 0.4;
           if (success) {
               updateState({ suspicion: Math.max(0, state.suspicion - 5) });
-              addLog(`Call: Lied ("${responseType === 'lie_work' ? 'Working late' : 'Traffic'}"). She bought it.`);
+              addLog(`Call: Lied ("${responseType}"). Success.`);
           } else {
               updateState({ suspicion: state.suspicion + 10 });
-              addLog(`Call: Lied. She heard the slot machines in the background.`);
+              addLog(`Call: Lied. Failed.`);
               triggerShake();
           }
       }
@@ -403,21 +580,30 @@ export default function App() {
         addLog(`Casino: Lost $${Math.abs(netWin)}.`);
         triggerShake();
     }
+    
+    // Beginner Mode checks
+    if (state.mode === GameMode.BEGINNER) return;
 
-    // 15:00 (3:00 PM) Pickup Alarm
+    // Standard Mode Events
     if (newTime >= 900 && !state.skippedPickup) {
         setPhase(GamePhase.PICKUP_DECISION);
         addLog("ALARM: 3:00 PM. Pick up Leo.");
         return;
     }
-
-    // Phone Call Logic (Increasing chance), ONLY if hasn't called yet this session
+    
     const baseChance = 0.05;
     const callChance = baseChance * newHandsPlayed; 
     
     if (Math.random() < callChance && phoneMode !== 'INCOMING_CALL' && !state.hasCalledInCasino) {
         triggerIncomingCall();
     }
+  };
+  
+  // Specific handler for tutorial mode to just add money without time penalty
+  const handleTutorialBlackjackEnd = (netWin: number, suspicionAdded: number) => {
+      updateState({
+          cash: state.cash + netWin
+      });
   };
 
   const handlePickupDecision = (choice: 'home' | 'casino') => {
@@ -426,38 +612,64 @@ export default function App() {
           setPhase(GamePhase.THE_DROP);
           setAmountToHandle(0);
       } else {
-          // Back to Casino - Very Risky
           updateState({ 
               suspicion: state.suspicion + 30, 
-              time: 960, // 4:00 PM start
+              time: 960, 
               skippedPickup: true,
-              hasCalledInCasino: false // Reset flag for new session
+              hasCalledInCasino: false 
           });
-          addLog("Ignored school pickup. Sarah will have to get him. She is furious.");
+          addLog("Ignored school pickup. Sarah is furious.");
           triggerShake();
           setPhase(GamePhase.CASINO);
       }
   };
 
   const leaveCasino = () => {
-    if (phoneMode === 'INCOMING_CALL') {
-        handlePhoneResponse('hangup');
-    }
+    if (phoneMode === 'INCOMING_CALL') handlePhoneResponse('hangup');
     
-    // If we are leaving and haven't hit the pickup time yet, fast forward to pickup
+    if (state.mode === GameMode.BEGINNER) {
+        completeTodo('casino');
+        setPhase(GamePhase.THE_DROP);
+        // Scripted Amount
+        if (state.day <= 2) setAmountToHandle(0);
+        else setAmountToHandle(state.debt); 
+        return;
+    }
+
     if (state.time < 900) {
         addLog("Waiting in car until school ends...");
         updateState({ time: 900 });
         setPhase(GamePhase.PICKUP_DECISION);
     } else {
-        // If we are leaving after 3PM (skipped pickup), go straight to drop
         setPhase(GamePhase.THE_DROP);
         setAmountToHandle(0);
     }
   };
   
   const handlePayment = () => {
-      if (amountToHandle > state.cash) return;
+      const isBeginnerEarly = state.mode === GameMode.BEGINNER && state.day <= 2;
+      
+      // Enforce Exact Payment for Beginner Day 1 & 2
+      if (isBeginnerEarly) {
+          if (amountToHandle !== 200 && state.cash >= 200) {
+              addLog("Vinnie: \"I said $200. Don't play games.\"");
+              triggerShake();
+              return;
+          }
+      }
+
+      // Enforce Minimum Payment Logic for Standard/Late Beginner
+      // Allows full pay off if debt < min payment, or if it's the last day
+      if (!isBeginnerEarly && amountToHandle < DAILY_MIN_PAYMENT && amountToHandle < state.debt && state.day !== state.maxDays) {
+           addLog(`Vinnie: "Minimum is $${DAILY_MIN_PAYMENT}. Don't insult me."`);
+           triggerShake();
+           return;
+      }
+
+      if (amountToHandle > state.cash) {
+          addLog("You don't have that much cash.");
+          return;
+      }
       
       const newTotalPaid = state.totalPaid + amountToHandle;
       const newDebt = state.debt - amountToHandle;
@@ -468,21 +680,46 @@ export default function App() {
           totalPaid: newTotalPaid
       });
 
-      if (state.day === MAX_DAYS) {
-          if (newDebt <= 0) {
-             setPhase(GamePhase.VICTORY);
-          } else {
-             finishDrop(); 
+      if (newDebt <= 0) {
+          if (state.mode === GameMode.BEGINNER) {
+               updateState({ difficultyCompleted: { ...state.difficultyCompleted, beginner: true }});
           }
+          setPhase(GamePhase.VICTORY);
+          return;
+      }
+
+      if (state.day === state.maxDays) {
+          finishDrop();
       } else {
-          if (amountToHandle >= DAILY_MIN_PAYMENT) {
-              addLog(`Paid Vinnie $${amountToHandle}. Safe for tonight.`);
-              setPhase(GamePhase.WATER_PLANTS); // New Flow: Go to plants before interrogation
+          // Check payment logic again for game over condition, though UI should prevent getting here
+          if ((amountToHandle >= DAILY_MIN_PAYMENT) || (state.mode === GameMode.BEGINNER && state.day < 3)) {
+              if (state.mode === GameMode.BEGINNER) {
+                  finishDrop();
+              } else {
+                  addLog(`Paid Vinnie $${amountToHandle}. Safe.`);
+                  setPhase(GamePhase.WATER_PLANTS); 
+              }
+          } else {
+              setPhase(GamePhase.GAME_OVER_MISSED_PAYMENT);
           }
       }
   };
   
   const finishDrop = () => {
+      if (state.mode === GameMode.BEGINNER) {
+          completeTodo('pay');
+          if (state.day === 1) {
+              setPhase(GamePhase.BEGINNER_DAY1_HOME); // Go to Home BG
+              triggerIncomingCall(); // Trigger Call immediately
+          } else if (state.day === 2) {
+              setPhase(GamePhase.COOKING_MINIGAME);
+          } else {
+              if (state.debt > 0) setPhase(GamePhase.GAME_OVER_DEBT);
+              else setPhase(GamePhase.VICTORY);
+          }
+          return;
+      }
+
       if (state.day === MAX_DAYS) {
           if (state.debt > 0) {
               setPhase(GamePhase.GAME_OVER_DEBT);
@@ -518,25 +755,19 @@ export default function App() {
   };
 
   const endDayLogic = () => {
+      if (state.debt <= 0) {
+          setPhase(GamePhase.VICTORY);
+          return;
+      }
+
       const newBank = state.bankBalance - DAILY_EXPENSES;
       let susChange = 0;
-      
-      if (newBank < 0) {
-          susChange = 20;
-          addLog("Bill autopay failed. Sarah is crying in the kitchen.");
-          triggerShake();
-      } else if (newBank < 100) {
-          susChange = 10;
-          addLog("Bank balance critical. Fridge is empty.");
-      } else {
-          addLog("Bills paid. Another day survived.");
-      }
+      if (newBank < 0) { susChange = 20; triggerShake(); } 
+      else if (newBank < 100) susChange = 10;
       
       updateState({ bankBalance: newBank, suspicion: state.suspicion + susChange });
       
-      if (state.debt <= 0 && state.day === MAX_DAYS) {
-          setPhase(GamePhase.VICTORY);
-      } else if (state.day >= MAX_DAYS && state.debt > 0) {
+      if (state.day >= state.maxDays && state.debt > 0) {
            setPhase(GamePhase.GAME_OVER_DEBT);
       } else {
           setPhase(GamePhase.NEXT_DAY_TRANSITION);
@@ -546,14 +777,52 @@ export default function App() {
   const payDebt = () => {
     if (state.cash >= state.debt) {
         updateState({ cash: state.cash - state.debt, debt: 0 });
+        if (state.mode === GameMode.BEGINNER) {
+             updateState({ difficultyCompleted: { ...state.difficultyCompleted, beginner: true }});
+        }
         setPhase(GamePhase.VICTORY);
     }
   };
 
   const nextDay = () => {
+    const nextDayNum = state.day + 1;
+    
+    if (state.mode === GameMode.BEGINNER) {
+        let newTodos = [];
+        if (nextDayNum === 2) {
+             newTodos = [
+                 {id: 'bank', text: 'Go to Bank', completed: false},
+                 {id: 'casino', text: 'Go to Casino', completed: false},
+                 {id: 'pay', text: 'Pay Vinnie', completed: false},
+                 {id: 'cook', text: 'Cook Dinner', completed: false},
+             ];
+             setPhase(GamePhase.BEGINNER_DAY1_HOME); // Start day 2 at Bank/Home
+        } else if (nextDayNum === 3) {
+             newTodos = [
+                 {id: 'drive', text: 'Drive Leo', completed: false},
+                 {id: 'bank', text: 'Go to Bank', completed: false},
+                 {id: 'casino', text: 'Go to Casino', completed: false},
+                 {id: 'pay', text: 'Pay Vinnie', completed: false},
+             ];
+             setPhase(GamePhase.DRIVING_MINIGAME);
+        }
+        
+        updateState({ 
+            day: nextDayNum, 
+            time: 420,
+            handsPlayedToday: 0,
+            todoList: newTodos
+        });
+        setPhoneMode('TODO');
+        setPhoneNotification(true);
+        addLog(`--- DAY ${nextDayNum} ---`);
+        return;
+    }
+
+    // Standard Mode Next Day
     const firstTask = randomizeDailyRoutine();
     updateState({ 
-        day: state.day + 1, 
+        day: nextDayNum, 
         beardShaved: false, 
         zoneMode: false, 
         time: 420,
@@ -562,7 +831,7 @@ export default function App() {
         callsMadeToday: 0
     });
     setPhase(firstTask);
-    addLog(`--- DAY ${state.day + 1} ---`);
+    addLog(`--- DAY ${nextDayNum} ---`);
   };
 
   // --- RENDER HELPERS ---
@@ -572,42 +841,51 @@ export default function App() {
     
     return (
         <div className={`w-72 h-[500px] bg-black border-4 border-slate-800 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden relative transition-transform duration-300 ${shake && isRinging ? 'animate-bounce' : ''}`}>
-            {/* Bezel / Notch */}
+            {/* Bezel */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-xl z-20"></div>
             
             {/* Status Bar */}
             <div className="w-full h-8 bg-slate-950 flex justify-between items-center px-6 pt-2 z-10 text-[10px] text-slate-400">
                 <span>{formatTime(state.time)}</span>
-                <div className="flex gap-1">
-                    <Signal size={10} />
-                    <Wifi size={10} />
-                    <Battery size={10} />
-                </div>
+                <div className="flex gap-1"><Signal size={10} /><Wifi size={10} /><Battery size={10} /></div>
             </div>
 
             {/* Screen Content */}
             <div className="flex-1 bg-slate-900 relative overflow-hidden">
-                {/* Wallpaper */}
                 <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000&auto=format&fit=crop')] bg-cover"></div>
 
-                {phoneMode === 'NOTES' && (
+                {(phoneMode === 'NOTES' || phoneMode === 'TODO') && (
                     <div className="flex flex-col h-full relative z-10">
                          <div className="bg-yellow-100/10 backdrop-blur-md p-4 border-b border-white/10 flex justify-between items-center">
-                            <h3 className="font-bold text-yellow-100">Notes</h3>
-                            <button onClick={handleCallHome} className="p-2 bg-white/10 rounded-full hover:bg-white/20" title="Call Home">
-                                <Phone size={14} className="text-white" />
-                            </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setPhoneMode('TODO')} className={`font-bold ${phoneMode === 'TODO' ? 'text-yellow-100' : 'text-slate-500'}`}>To-Do</button>
+                                <button onClick={() => setPhoneMode('NOTES')} className={`font-bold ${phoneMode === 'NOTES' ? 'text-yellow-100' : 'text-slate-500'}`}>Notes</button>
+                            </div>
                          </div>
-                         <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs text-yellow-100/80 custom-scrollbar">
-                             {logs.length === 0 && <span className="opacity-50 italic">No entries yet...</span>}
-                             {logs.map((log) => (
-                                 <div key={log.id} className="border-b border-white/5 pb-2">
-                                     <span className="opacity-50 text-[10px] block mb-1">{log.time}</span>
-                                     {log.text}
-                                 </div>
-                             ))}
-                             <div ref={notesEndRef} />
-                         </div>
+                         
+                         {phoneMode === 'NOTES' && (
+                             <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs text-yellow-100/80 custom-scrollbar">
+                                 {logs.map((log) => (
+                                     <div key={log.id} className="border-b border-white/5 pb-2">
+                                         <span className="opacity-50 text-[10px] block mb-1">{log.time}</span>
+                                         {log.text}
+                                     </div>
+                                 ))}
+                                 <div ref={notesEndRef} />
+                             </div>
+                         )}
+
+                         {phoneMode === 'TODO' && (
+                             <div className="flex-1 overflow-y-auto p-4 space-y-3 font-serif text-slate-200">
+                                 {state.todoList.length === 0 && <div className="text-center italic opacity-50 mt-10">No tasks.</div>}
+                                 {state.todoList.map((item) => (
+                                     <div key={item.id} className="flex items-center gap-3 p-3 bg-white/5 rounded border border-white/10">
+                                         {item.completed ? <Check className="text-emerald-400 w-5 h-5"/> : <div className="w-5 h-5 border border-slate-500 rounded" />}
+                                         <span className={item.completed ? 'line-through opacity-50' : ''}>{item.text}</span>
+                                     </div>
+                                 ))}
+                             </div>
+                         )}
                     </div>
                 )}
 
@@ -620,15 +898,12 @@ export default function App() {
                              <h3 className="text-2xl text-white font-serif">Sarah (Wife)</h3>
                              <p className="text-slate-400 text-sm">Mobile</p>
                          </div>
-
                          <div className="w-full px-6 space-y-3">
                              <p className="text-center text-xs text-rose-400 mb-2">SHE IS CALLING.</p>
-                             <button onClick={() => setPhoneMode('IN_CALL')} className="w-full py-4 bg-emerald-600 rounded-full flex items-center justify-center gap-2 text-white font-bold hover:bg-emerald-500 transition-colors animate-pulse">
-                                 <PhoneIncoming size={20} /> Slide to Answer
-                             </button>
-                             <button onClick={() => handlePhoneResponse('hangup')} className="w-full py-4 bg-rose-900/50 border border-rose-800 rounded-full flex items-center justify-center gap-2 text-rose-200 font-bold hover:bg-rose-900 transition-colors">
-                                 <X size={20} /> Decline (+Suspicion)
-                             </button>
+                             <button onClick={() => setPhoneMode('IN_CALL')} className="w-full py-4 bg-emerald-600 rounded-full flex items-center justify-center gap-2 text-white font-bold animate-pulse"><PhoneIncoming size={20} /> Answer</button>
+                             {state.mode !== GameMode.BEGINNER && (
+                                <button onClick={() => handlePhoneResponse('hangup')} className="w-full py-4 bg-rose-900/50 border border-rose-800 rounded-full flex items-center justify-center gap-2 text-rose-200 font-bold"><X size={20} /> Decline</button>
+                             )}
                          </div>
                     </div>
                 )}
@@ -636,36 +911,33 @@ export default function App() {
                 {phoneMode === 'IN_CALL' && (
                     <div className="flex flex-col h-full relative z-10 bg-slate-900/95 p-4">
                         <div className="text-center mb-8 mt-4">
-                            <span className="text-emerald-400 text-xs uppercase tracking-widest">Connected 00:03</span>
-                            <h3 className="text-xl text-white font-serif mt-2">"Where are you??"</h3>
+                            <span className="text-emerald-400 text-xs uppercase tracking-widest">Connected</span>
+                            <h3 className="text-xl text-white font-serif mt-2">"What did you do today?"</h3>
                         </div>
-                        
                         <div className="space-y-3 mt-auto">
-                            <button onClick={() => handlePhoneResponse('truth')} className="w-full p-3 bg-slate-800 border border-slate-700 hover:bg-rose-900/30 hover:border-rose-500 rounded text-left transition-all">
+                            <button onClick={() => handlePhoneResponse('truth')} className="w-full p-3 bg-slate-800 border border-slate-700 hover:bg-rose-900/30 rounded text-left">
                                 <span className="block text-white text-sm font-bold">Tell Truth</span>
-                                <span className="text-[10px] text-slate-400">"At the casino." (+40 Sus)</span>
+                                <span className="text-[10px] text-slate-400">"Gambling." (+Sus)</span>
                             </button>
-                            <button onClick={() => handlePhoneResponse('lie_work')} className="w-full p-3 bg-slate-800 border border-slate-700 hover:bg-indigo-900/30 hover:border-indigo-500 rounded text-left transition-all">
-                                <span className="block text-white text-sm font-bold">Lie: Work</span>
-                                <span className="text-[10px] text-slate-400">"Working late." (Risk)</span>
+                            <button onClick={() => handlePhoneResponse('lie_work')} className="w-full p-3 bg-slate-800 border border-slate-700 hover:bg-indigo-900/30 rounded text-left">
+                                <span className="block text-white text-sm font-bold">Lie: Friends</span>
+                                <span className="text-[10px] text-slate-400">"Hung out with Mike." (Safe)</span>
                             </button>
-                            <button onClick={() => handlePhoneResponse('lie_traffic')} className="w-full p-3 bg-slate-800 border border-slate-700 hover:bg-indigo-900/30 hover:border-indigo-500 rounded text-left transition-all">
-                                <span className="block text-white text-sm font-bold">Lie: Traffic</span>
-                                <span className="text-[10px] text-slate-400">"Stuck in jam." (Risk)</span>
+                            <button onClick={() => handlePhoneResponse('lie_traffic')} className="w-full p-3 bg-slate-800 border border-slate-700 hover:bg-indigo-900/30 rounded text-left">
+                                <span className="block text-white text-sm font-bold">Lie: Bar</span>
+                                <span className="text-[10px] text-slate-400">"Went for a drink." (Fail)</span>
                             </button>
                         </div>
                     </div>
                 )}
             </div>
-
-            {/* Home Bar */}
-            <div className="w-full h-1 bg-slate-800 mx-auto mb-1 rounded-full w-1/3 opacity-50 absolute bottom-2 left-1/2 -translate-x-1/2"></div>
         </div>
     );
   };
 
   const renderContent = () => {
     switch (phase) {
+      // ... (Existing phases)
       case GamePhase.INTRO:
         return (
           <div className="flex flex-col items-center justify-center min-h-[100vh] text-center animate-slide-up z-20 w-full relative py-8 px-4">
@@ -675,50 +947,200 @@ export default function App() {
             <h1 className="text-6xl md:text-8xl font-serif font-bold tracking-tighter mb-4 text-slate-200 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] leading-none text-flicker">
               UNDERCOVER<br/><span className="text-rose-950 stroke-white bg-clip-text text-transparent bg-gradient-to-t from-red-900 to-black stroke-1">GAMBLER</span>
             </h1>
-            <div className="w-16 h-[1px] bg-slate-500 mb-6 mx-auto"></div>
-
-            <div className="max-w-2xl mx-auto mb-8 text-center space-y-4 relative z-10">
-                <p className="text-slate-300 font-serif text-lg leading-relaxed italic opacity-90">
-                    "You were clean. You were stable. You were almost happy."
-                </p>
-                <div className="text-slate-400 font-serif text-sm leading-relaxed space-y-2">
-                    <p>
-                        Then the old itch came back, and <span className="text-rose-500 font-bold">Vinnie</span>—your old drug dealer turned loan shark—was all too happy to scratch it.
-                        Now you're <b>${state.debt}</b> deep in a hole dug by trembling hands and cheap whiskey.
-                    </p>
-                    <p>
-                        You walk through your front door like a ghost. A deadbeat in the mirror. A stranger to your wife.
-                        You have <span className="text-slate-200 font-bold border-b border-slate-500">7 days</span> to pay the debt, keep Sarah from packing her bags, and prove to your son Leo that his father is more than just a shadow.
-                    </p>
-                </div>
-                <p className="text-rose-600 font-serif text-base font-bold tracking-widest uppercase pt-2 drop-shadow-md">
-                    One week to turn it all around. Or the alleyway gets another stain.
-                </p>
+            <div className="flex gap-4 z-50 mt-12">
+              <Button 
+                  onClick={startDifficultySelect} 
+                  className="w-64 py-4 text-lg font-black !bg-slate-100 !text-black hover:!bg-white border-4 border-slate-300 tracking-[0.25em] animate-pulse"
+              >
+                  START GAME
+              </Button>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8 text-left relative z-10 w-full">
-                <div className="p-4 bg-black/40 border-l-2 border-pink-900/50 backdrop-blur-sm hover:bg-black/60 transition-colors">
-                    <h3 className="text-pink-400 font-serif text-xl mb-1">Sarah</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Your Wife. She watches you with suspicious eyes. Too many lies, and she's gone forever.</p>
-                </div>
-                <div className="p-4 bg-black/40 border-l-2 border-indigo-900/50 backdrop-blur-sm hover:bg-black/60 transition-colors">
-                    <h3 className="text-indigo-400 font-serif text-xl mb-1">Leo</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">Your Son. He just wants his dad back. Don't let him down again.</p>
-                </div>
-                <div className="p-4 bg-black/40 border-l-2 border-red-900/50 backdrop-blur-sm hover:bg-black/60 transition-colors">
-                    <h3 className="text-red-500 font-serif text-xl mb-1">Vinnie</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed">The Shark. The debt is real. Pay <b>${DAILY_MIN_PAYMENT}</b> daily or find out what he keeps in his trunk.</p>
-                </div>
-            </div>
-
-            <Button 
-                onClick={startGame} 
-                className="w-64 py-4 text-xl font-black !bg-slate-100 !text-black hover:!bg-white hover:scale-105 hover:shadow-[0_0_60px_rgba(255,255,255,0.6)] shadow-[0_0_30px_rgba(255,255,255,0.3)] border-4 border-slate-300 tracking-[0.25em] animate-pulse transition-all duration-300 z-50"
-            >
-                WAKE UP
-            </Button>
           </div>
         );
+
+      case GamePhase.DIFFICULTY_SELECT:
+          return (
+              <div className="max-w-4xl w-full mx-auto animate-slide-up bg-slate-900/90 border border-slate-700 p-8 rounded-lg relative z-20 shadow-2xl text-center">
+                  <h2 className="text-4xl font-serif text-white mb-8">Select Mode</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Beginner */}
+                      <div className="p-6 border-2 border-emerald-500/50 bg-emerald-900/10 rounded flex flex-col items-center hover:bg-emerald-900/20 transition-colors">
+                          <h3 className="text-2xl font-bold text-emerald-400 mb-2">Beginner</h3>
+                          <p className="text-sm text-slate-400 mb-4">3 Days. Guided Tutorial. Easier Economy.</p>
+                          <Button onClick={() => selectDifficulty(GameMode.BEGINNER)} variant="primary">SELECT</Button>
+                      </div>
+                      
+                      {/* Standard */}
+                      <div className={`p-6 border-2 rounded flex flex-col items-center transition-colors ${state.difficultyCompleted.beginner ? 'border-indigo-500/50 bg-indigo-900/10 hover:bg-indigo-900/20' : 'border-slate-700 bg-slate-800 opacity-60'}`}>
+                          <div className="flex items-center gap-2 mb-2">
+                             {!state.difficultyCompleted.beginner && <Lock size={20} />}
+                             <h3 className={`text-2xl font-bold ${state.difficultyCompleted.beginner ? 'text-indigo-400' : 'text-slate-500'}`}>Standard</h3>
+                          </div>
+                          <p className="text-sm text-slate-400 mb-4">7 Days. Full Experience. Permadeath.</p>
+                          <Button onClick={() => selectDifficulty(GameMode.STANDARD)} disabled={!state.difficultyCompleted.beginner} variant="secondary">
+                             {state.difficultyCompleted.beginner ? 'SELECT' : 'LOCKED'}
+                          </Button>
+                      </div>
+
+                      {/* Hard */}
+                      <div className="p-6 border-2 border-slate-700 bg-slate-800 opacity-60 rounded flex flex-col items-center">
+                          <div className="flex items-center gap-2 mb-2">
+                             <Lock size={20} />
+                             <h3 className="text-2xl font-bold text-slate-500">Hard</h3>
+                          </div>
+                          <p className="text-sm text-slate-400 mb-4">Unforgiving. Requires Standard Clear.</p>
+                          <Button disabled variant="outline">LOCKED</Button>
+                      </div>
+                  </div>
+              </div>
+          );
+
+      case GamePhase.BEGINNER_INTRO_VINNIE_CALL:
+        return <VinnieCallIntro onComplete={() => {
+            setPhase(GamePhase.BEGINNER_DAY1_HOME);
+            addLog("DAY 1: Check your phone.");
+        }} />;
+
+      case GamePhase.BEGINNER_DAY1_HOME:
+          const allTodosDone = state.todoList.every(t => t.completed);
+          const bankTask = state.todoList.find(t => t.id === 'bank');
+          
+          return (
+            <div className="max-w-2xl w-full mx-auto text-center animate-slide-up relative z-20 pt-20">
+               <div className="absolute inset-0 z-0 opacity-40">
+                   {/* Bedroom BG */}
+                   <img src={IMG_BEDROOM} className="w-full h-full object-cover rounded-lg grayscale" alt="Bedroom" />
+               </div>
+               <div className="relative z-10 bg-black/80 p-8 rounded-xl border border-slate-700 shadow-2xl">
+                   <h2 className="text-3xl font-serif text-slate-200 mb-4">Day {state.day}</h2>
+                   
+                   {!allTodosDone && bankTask && !bankTask.completed && (
+                        <>
+                            <p className="text-slate-400 mb-8 font-serif italic">You need to sort out your finances before Vinnie calls.</p>
+                            <Button onClick={() => setPhase(GamePhase.BEGINNER_DAY1_BANK)} fullWidth variant="primary">GO TO BANK</Button>
+                        </>
+                   )}
+
+                   {allTodosDone && (
+                        <div className="animate-slide-up">
+                            <p className="text-slate-400 mb-8 font-serif italic">The day is done. You survived.</p>
+                            <Button onClick={endDayLogic} fullWidth variant="primary" icon={Moon}>SLEEP</Button>
+                        </div>
+                   )}
+                   
+                   {!allTodosDone && bankTask && bankTask.completed && !state.todoList.find(t => t.id === 'sarah')?.completed && (
+                       // Intermediate state (waiting for phone call), show nothing or a subtle hint
+                       <div className="text-slate-500 italic animate-pulse">...</div>
+                   )}
+                   
+                   {/* Phone Call Tutorial Overlay */}
+                   {state.mode === GameMode.BEGINNER && state.day === 1 && phoneMode === 'IN_CALL' && !phoneTutorialDismissed && (
+                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 bg-slate-900 border border-indigo-500 p-6 rounded-lg shadow-2xl z-50 animate-slide-up">
+                           <div className="flex items-center gap-2 mb-4">
+                               <Info className="text-indigo-400" />
+                               <h3 className="text-lg font-bold text-white">Suspicion Mechanics</h3>
+                           </div>
+                           <p className="text-slate-300 text-sm mb-4">
+                               Your answers affect Sarah's <strong>Suspicion</strong>. 
+                               Lying is risky but lowers suspicion if successful. Telling the truth is safe but raises suspicion.
+                           </p>
+                           <div className="bg-slate-800 p-3 rounded mb-4">
+                               <p className="text-emerald-300 text-xs italic">"I'm coming back from my mother's with Leo. Be prepared to make dinner tomorrow."</p>
+                           </div>
+                           <Button fullWidth onClick={() => setPhoneTutorialDismissed(true)}>Got it</Button>
+                       </div>
+                   )}
+               </div>
+            </div>
+          );
+
+      case GamePhase.BEGINNER_DAY1_BANK:
+          // Check if Day 1 tutorial or later days
+          const isTutorial = state.day === 1 && state.beginnerTutorialActive;
+          
+          return (
+            <div className="max-w-3xl w-full mx-auto animate-slide-up relative">
+                {isTutorial && bankTutorialStep === 0 && (
+                    <div className="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-8 text-center rounded">
+                        <div className="mt-8">
+                            <p className="text-slate-200 text-xl mb-4 max-w-lg mx-auto leading-relaxed">
+                                Look at the top left. You will see how much cash you have on hand, how much is in the bank, and how much you owe your old drug dealer, Vinnie.
+                            </p>
+                            <Button onClick={() => setBankTutorialStep(1)}>Next</Button>
+                        </div>
+                    </div>
+                )}
+                {isTutorial && bankTutorialStep === 1 && (
+                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-8 text-center rounded">
+                        <div>
+                            <p className="text-rose-400 text-xl mb-4 max-w-lg mx-auto leading-relaxed">
+                                Now look at the top right. This is your SUSPICION meter. The more you withdraw from the bank and fail tasks, the more suspecting your family will become.
+                            </p>
+                            <Button onClick={() => setBankTutorialStep(2)}>Next</Button>
+                        </div>
+                    </div>
+                )}
+                {isTutorial && bankTutorialStep === 2 && (
+                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-8 text-center rounded">
+                        <div>
+                            <p className="text-slate-200 text-xl mb-4">Manage your finances here. Go to the casino now.</p>
+                            <Button onClick={() => setBankTutorialStep(3)}>Got it</Button>
+                        </div>
+                    </div>
+                )}
+
+                <div className="text-center mb-12">
+                    <Landmark className="w-8 h-8 mx-auto text-slate-600 mb-4" />
+                    <h2 className="text-2xl font-serif text-slate-300">City Bank</h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 mb-12">
+                    <div className="bg-black/40 border border-slate-800 p-6 text-center">
+                        <span className="text-xs uppercase tracking-widest text-slate-500">Cash</span>
+                        <div className="text-3xl font-serif text-emerald-500 mt-2">${state.cash}</div>
+                    </div>
+                    <div className="bg-black/40 border border-slate-800 p-6 text-center">
+                        <span className="text-xs uppercase tracking-widest text-slate-500">Bank</span>
+                        <div className="text-3xl font-serif text-indigo-400 mt-2">${state.bankBalance}</div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <Button onClick={() => !isTutorial && handleBanking('deposit')} disabled={isTutorial} variant="secondary" icon={ArrowRightLeft}>Deposit $100</Button>
+                    <Button onClick={() => !isTutorial && handleBanking('withdraw')} disabled={isTutorial} variant="secondary" icon={Banknote}>Withdraw $100</Button>
+                </div>
+
+                <div className="mt-12 text-center">
+                    <Button onClick={finishBanking} variant="primary" className="w-64">Enter Casino</Button>
+                </div>
+            </div>
+          );
+
+      case GamePhase.BEGINNER_BLACKJACK:
+          return (
+             <div className="w-full h-full animate-slide-up relative flex items-center justify-center">
+                <Blackjack 
+                    drunkMode={false} 
+                    zoneMode={false}
+                    cash={state.cash} 
+                    onGameEnd={handleTutorialBlackjackEnd} 
+                    onExit={leaveCasino}
+                    tutorialMode={true}
+                    onTutorialComplete={leaveCasino}
+                />
+             </div>
+          );
+
+      case GamePhase.COOKING_MINIGAME:
+          return <CookingMinigame onComplete={handleCookingComplete} />;
+
+      case GamePhase.DRIVING_MINIGAME:
+          return <DrivingMinigame onComplete={handleDrivingComplete} />;
+      
+      // ... Reusing Existing Phases below ...
+      case GamePhase.TUTORIAL:
+          // ... (Existing Code) ...
+          return null; // Should not reach here in updated flow, or reuse existing
 
       case GamePhase.MAKE_BED:
           return <BedMaking onComplete={handleBedComplete} />;
@@ -834,7 +1256,7 @@ export default function App() {
                     <Button onClick={() => handleBanking('deposit')} variant="secondary" icon={ArrowRightLeft}>Deposit $100</Button>
                     <Button onClick={() => handleBanking('withdraw')} variant="secondary" icon={Banknote}>Withdraw $100</Button>
                     <Button onClick={() => handleBanking('loan')} variant="danger" icon={AlertTriangle} disabled={state.loansTaken >= MAX_LOANS}>
-                        Shark Loan ($500) {state.loansTaken >= MAX_LOANS ? '(MAXED)' : ''}
+                        Shark Loan ($2500) {state.loansTaken >= MAX_LOANS ? '(MAXED)' : ''}
                     </Button>
                     <Button onClick={() => handleBanking('gift')} variant="primary" icon={Gift}>
                         Buy Flowers (${COST_GIFT})
@@ -850,11 +1272,9 @@ export default function App() {
       case GamePhase.CASINO:
         return (
           <div className="w-full h-full animate-slide-up relative flex items-center justify-center">
-             {/* Subtle overlay for casino vibe */}
              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_20%,#000000_100%)] z-0 opacity-50"></div>
              
-             {/* If Phone is ringing/in-call, we visually dim the blackjack game to focus on phone */}
-             <div className={`transition-all duration-500 ${phoneMode !== 'NOTES' ? 'opacity-30 blur-sm pointer-events-none' : 'opacity-100'}`}>
+             <div className={`transition-all duration-500 ${phoneMode !== 'NOTES' && phoneMode !== 'TODO' ? 'opacity-30 blur-sm pointer-events-none' : 'opacity-100'}`}>
                 <Blackjack 
                     drunkMode={state.drunk} 
                     zoneMode={state.zoneMode}
@@ -889,10 +1309,16 @@ export default function App() {
         );
 
       case GamePhase.THE_DROP:
-          const isFinalDay = state.day === MAX_DAYS;
-          const required = isFinalDay ? state.debt : DAILY_MIN_PAYMENT;
-          const stillNeed = required;
+          const required = state.day === MAX_DAYS || (state.mode === GameMode.BEGINNER && state.day === 3) ? state.debt : DAILY_MIN_PAYMENT;
           
+          let maxPayable = state.cash;
+          // Cap Day 2 payment for tutorial purposes
+          const isBeginnerEarly = state.mode === GameMode.BEGINNER && state.day <= 2;
+          
+          if (isBeginnerEarly) {
+              maxPayable = Math.min(state.cash, 200);
+          }
+
           return (
              <div className="max-w-lg w-full mx-auto animate-slide-up text-center">
                  <h2 className="text-4xl font-serif text-rose-700 mb-8 tracking-widest">THE DROP</h2>
@@ -903,7 +1329,7 @@ export default function App() {
                      <div className="space-y-4 font-serif">
                          <div className="border-t border-slate-800 pt-4 flex justify-between text-rose-500 text-xl">
                              <span>DUE TODAY</span>
-                             <span>${stillNeed}</span>
+                             <span>${required}</span>
                          </div>
                      </div>
                  </div>
@@ -911,11 +1337,29 @@ export default function App() {
                  <div className="flex items-center justify-center gap-6 mb-8">
                      <button onClick={() => setAmountToHandle(Math.max(0, amountToHandle - 100))} className="w-12 h-12 rounded-full border border-slate-700 hover:bg-white/10 text-xl">-</button>
                      <div className="text-5xl font-serif text-white">${amountToHandle}</div>
-                     <button onClick={() => setAmountToHandle(Math.min(state.cash, amountToHandle + 100))} className="w-12 h-12 rounded-full border border-slate-700 hover:bg-white/10 text-xl">+</button>
+                     <button onClick={() => setAmountToHandle(Math.min(maxPayable, amountToHandle + 100))} className="w-12 h-12 rounded-full border border-slate-700 hover:bg-white/10 text-xl">+</button>
                  </div>
                  
+                 {isBeginnerEarly && amountToHandle < 200 && (
+                     <div className="text-sm text-yellow-500 mb-4 font-mono-theme animate-pulse">
+                         Instruction: Increase payment to $200.
+                     </div>
+                 )}
+                 {isBeginnerEarly && amountToHandle >= 200 && (
+                     <div className="text-xs text-rose-400 mb-4 font-mono-theme">
+                         Vinnie: "That's enough for today. Save the rest for tomorrow."
+                     </div>
+                 )}
+
                  <div className="space-y-4">
-                    <Button onClick={handlePayment} variant="danger" fullWidth disabled={amountToHandle === 0}>HAND OVER CASH</Button>
+                    <Button 
+                        onClick={handlePayment} 
+                        variant="danger" 
+                        fullWidth 
+                        disabled={amountToHandle === 0 || (isBeginnerEarly && amountToHandle < 200 && state.cash >= 200)}
+                    >
+                        HAND OVER CASH
+                    </Button>
                     <Button onClick={finishDrop} variant="ghost" fullWidth>Walk Away (Consequences)</Button>
                  </div>
              </div> 
@@ -923,7 +1367,6 @@ export default function App() {
 
       case GamePhase.EVENING_INTERROGATION:
         if (!currentEvent) return null;
-        
         return (
           <div className="flex gap-12 items-center max-w-5xl w-full mx-auto animate-slide-up">
              <div className="w-1/2 h-[500px] relative rounded overflow-hidden shadow-2xl grayscale contrast-125">
@@ -934,13 +1377,11 @@ export default function App() {
                  />
                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
             </div>
-            
             <div className="w-1/2">
                 <div className="mb-8 border-l-2 border-slate-700 pl-6">
                     <h3 className="text-lg font-bold text-slate-400 mb-2">{currentEvent.speaker}</h3>
                     <p className="text-2xl font-serif text-slate-200 italic leading-relaxed">"{currentEvent.text}"</p>
                 </div>
-                
                 <div className="space-y-3">
                 {currentEvent.options.map((option, idx) => (
                     <button 
@@ -976,7 +1417,7 @@ export default function App() {
              </div>
 
              <div className="pt-8">
-                {state.cash >= state.debt && state.day === MAX_DAYS ? (
+                {state.cash >= state.debt && state.day === state.maxDays ? (
                 <Button onClick={payDebt} variant="primary" className="text-xl px-12 py-4">PAY THE DEBT</Button>
                 ) : (
                 <Button onClick={nextDay} variant="outline" className="w-64">Sleep</Button>
@@ -1031,7 +1472,9 @@ export default function App() {
               It's over. The shadow is lifted.<br/>
               But you can still see the cards when you close your eyes.
             </p>
-            <Button onClick={resetGame} variant="primary">New Life</Button>
+            <div className="flex gap-4 justify-center">
+                 <Button onClick={resetGame} variant="primary">New Life</Button>
+            </div>
           </div>
         );
 
@@ -1046,12 +1489,14 @@ export default function App() {
       <div className="absolute inset-0 bg-gradient-to-b from-black via-[#111] to-[#050505] -z-10"></div>
       
       {/* Cinematic HUD - Absolute Top */}
-      {phase !== GamePhase.INTRO && (
+      {phase !== GamePhase.INTRO && phase !== GamePhase.DIFFICULTY_SELECT && phase !== GamePhase.BEGINNER_INTRO_VINNIE_CALL && (
         <div className="absolute top-0 left-0 w-full z-50 flex items-center justify-between px-8 py-4 bg-gradient-to-b from-black/90 to-transparent">
              {/* Left Stats */}
              <div className="flex gap-8">
                  <StatBadge icon={Calendar} label="Day" value={state.day} />
-                 <StatBadge icon={Clock} label="Time" value={formatTime(state.time)} />
+                 {state.mode !== GameMode.BEGINNER && (
+                    <StatBadge icon={Clock} label="Time" value={formatTime(state.time)} />
+                 )}
                  <StatBadge icon={DollarSign} label="Wallet" value={`$${state.cash}`} highlight />
                  <StatBadge icon={Landmark} label="Bank" value={`$${state.bankBalance}`} />
                  <StatBadge icon={Target} label="Debt" value={`$${state.debt}`} danger />
@@ -1075,7 +1520,7 @@ export default function App() {
       </div>
 
       {/* Phone UI - Bottom Right */}
-      {phase !== GamePhase.INTRO && (
+      {phase !== GamePhase.INTRO && phase !== GamePhase.DIFFICULTY_SELECT && phase !== GamePhase.BEGINNER_INTRO_VINNIE_CALL && (
           <div className="absolute bottom-8 right-8 z-50">
              {renderPhone()}
           </div>
