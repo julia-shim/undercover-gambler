@@ -1,8 +1,14 @@
 import { Suit, Card, InteractionEvent } from './types';
 
-export const INITIAL_DEBT = 2500;
-export const INITIAL_CASH = 700;
-export const INITIAL_BANK = 500; // Enough for a few days of bills
+export const INITIAL_DEBT_BEGINNER = 1000;
+export const INITIAL_CASH_BEGINNER = 400;
+export const INITIAL_BANK_BEGINNER = 500; // Enough for a few days of bills
+export const INITIAL_DEBT_STANDARD = 2500;
+export const INITIAL_CASH_STANDARD = 600;
+export const INITIAL_BANK_STANDARD = 500; // Enough for a few days of bills
+export const INITIAL_DEBT_HARD = 5000;
+export const INITIAL_CASH_HARD = 600;
+export const INITIAL_BANK_HARD = 0; // Enough for a few days of bills
 export const MAX_DAYS = 7;
 export const SUSPICION_LIMIT = 100;
 export const DAILY_EXPENSES = 75; // Deducted from bank daily

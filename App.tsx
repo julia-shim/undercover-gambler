@@ -6,9 +6,15 @@ import {
   GameMode
 } from './types';
 import { 
-  INITIAL_CASH, 
-  INITIAL_BANK, 
-  INITIAL_DEBT, 
+  INITIAL_CASH_BEGINNER, 
+  INITIAL_BANK_BEGINNER, 
+  INITIAL_DEBT_BEGINNER, 
+  INITIAL_CASH_STANDARD, 
+  INITIAL_BANK_STANDARD, 
+  INITIAL_DEBT_STANDARD, 
+  INITIAL_CASH_HARD, 
+  INITIAL_BANK_HARD, 
+  INITIAL_DEBT_HARD, 
   MAX_DAYS, 
   SUSPICION_LIMIT,
   DAILY_EXPENSES,
@@ -67,19 +73,18 @@ const IMG_LEO_SAD = "https://images.unsplash.com/photo-1503919545889-aef636e10ad
 const IMG_CASINO = "https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=1000&auto=format&fit=crop"; 
 const IMG_KITCHEN = "https://images.unsplash.com/photo-1556910103-1c02745a30bf?q=80&w=1000&auto=format&fit=crop";
 // Updated reliable dark bedroom image
-const IMG_BEDROOM = "https://images.unsplash.com/photo-1505691938895-1758d7fab5c0?q=80&w=1000&auto=format&fit=crop";
+const IMG_BEDROOM = "https://unsplash.com/photos/leaf-plant-near-bed-OZiflZqq0N0?q=80&w=1000&auto=format&fit=crop";
 
 // --- Phone Types ---
 type PhoneMode = 'LOCKED' | 'NOTES' | 'INCOMING_CALL' | 'IN_CALL' | 'TODO';
 
 const INITIAL_STATE: PlayerState = {
-    mode: GameMode.STANDARD,
+    mode: GameMode.BEGINNER,
     difficultyCompleted: { beginner: false, standard: false },
     beginnerTutorialActive: true,
-    
-    cash: INITIAL_CASH,
-    bankBalance: INITIAL_BANK,
-    debt: INITIAL_DEBT,
+    cash: INITIAL_CASH_BEGINNER,
+    bankBalance: INITIAL_BANK_BEGINNER,
+    debt: INITIAL_DEBT_BEGINNER,
     totalPaid: 0,
     suspicion: 0,
     day: 1,
