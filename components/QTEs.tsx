@@ -351,7 +351,7 @@ export const CookingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
     const [stirProgress, setStirProgress] = useState(0);
     
     // Added Timer for Suspicion Element
-    const [timeLeft, setTimeLeft] = useState(15); 
+    const [timeLeft, setTimeLeft] = useState(10); 
     const [failed, setFailed] = useState(false);
 
     useEffect(() => {
