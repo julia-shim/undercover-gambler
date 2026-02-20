@@ -64,9 +64,9 @@ import {
 const IMG_SARAH_SAD = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop"; 
 const IMG_LEO_SAD = "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=1000&auto=format&fit=crop"; 
 const IMG_CASINO = "https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=1000&auto=format&fit=crop"; 
-const IMG_KITCHEN = "https://images.unsplash.com/photo-1556910103-1c02745a30bf?q=80&w=1000&auto=format&fit=crop";
 // Updated reliable dark bedroom image
-const IMG_BEDROOM = "https://images.unsplash.com/photo-1505691938895-1758d7fab5c0?q=80&w=1000&auto=format&fit=crop";
+const IMG_BEDROOM = "https://images.unsplash.com/photo-1522771753035-4a53c9f13185?q=80&w=1000&auto=format&fit=crop";
+const IMG_VINNIE = "https://images.unsplash.com/photo-1565561028-afb34cc62d66?q=80&w=1000&auto=format&fit=crop"; // Shadowy figure
 
 // --- Phone Types ---
 type PhoneMode = 'LOCKED' | 'NOTES' | 'INCOMING_CALL' | 'IN_CALL' | 'TODO';
@@ -107,11 +107,11 @@ const VinnieCallIntro: React.FC<{ onComplete: () => void }> = ({ onComplete }) =
 
     const handleAnswer = () => {
         setStep('talking');
-        // Step 3: Talk then fade out
-        setTimeout(() => {
-            setStep('fade-out');
-            setTimeout(onComplete, 2000); // Wait for fade out
-        }, 5000);
+    };
+
+    const handleHangUp = () => {
+        // Immediate finish
+        onComplete();
     };
 
     return (
@@ -157,9 +157,9 @@ const VinnieCallIntro: React.FC<{ onComplete: () => void }> = ({ onComplete }) =
                                      </p>
                                  </div>
 
-                                 <div className="w-20 h-20 bg-rose-900/50 rounded-full flex items-center justify-center border border-rose-800">
+                                 <button onClick={handleHangUp} className="w-20 h-20 bg-rose-900/50 rounded-full flex items-center justify-center border border-rose-800 hover:bg-rose-800 transition-colors">
                                      <PhoneOff size={32} className="text-rose-400" />
-                                 </div>
+                                 </button>
                              </div>
                         )}
                     </div>
@@ -186,6 +186,7 @@ export default function App() {
   const [shake, setShake] = useState(false);
   const [amountToHandle, setAmountToHandle] = useState(0); 
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [showVinnieMercy, setShowVinnieMercy] = useState(false); // New state for Vinnie dialog
 
   // Beginner Mode UI State
   const [bankTutorialStep, setBankTutorialStep] = useState(0);
@@ -248,6 +249,7 @@ export default function App() {
       setPhoneMode('NOTES');
       setPhoneNotification(false);
       setPhoneTutorialDismissed(false);
+      setShowVinnieMercy(false);
   };
 
   const startDifficultySelect = () => {
@@ -298,7 +300,8 @@ export default function App() {
 
   const randomizeDailyRoutine = () => {
       const selectedTask1 = GamePhase.MAKE_BED;
-      const task2Options = [GamePhase.MAKE_LUNCH, GamePhase.FIND_KEYS];
+      // Add Soup minigame to rotation for Standard/Hard
+      const task2Options = [GamePhase.MAKE_LUNCH, GamePhase.FIND_KEYS, GamePhase.COOKING_MINIGAME];
       const selectedTask2 = task2Options[Math.floor(Math.random() * task2Options.length)];
       setNextQTE(selectedTask2);
       return selectedTask1;
@@ -313,7 +316,8 @@ export default function App() {
 
   // --- BEGINNER MODE HANDLERS ---
   const handleCookingComplete = (success: boolean) => {
-      completeTodo('cook');
+      if (state.mode === GameMode.BEGINNER) completeTodo('cook');
+      
       if (success) {
           addLog("Dinner cooked perfectly. Sarah smiled.");
           updateState({ suspicion: Math.max(0, state.suspicion - 10) });
@@ -324,16 +328,33 @@ export default function App() {
           triggerShake();
       }
       
-      setPhase(GamePhase.NEXT_DAY_TRANSITION);
+      if (state.mode === GameMode.BEGINNER) {
+          setPhase(GamePhase.NEXT_DAY_TRANSITION);
+      } else {
+          // In standard mode, Cooking replaces task 2
+          setPhase(GamePhase.MORNING_ROUTINE);
+      }
   };
 
   const handleDrivingComplete = (success: boolean) => {
-      completeTodo('drive');
+      if (state.mode === GameMode.BEGINNER) completeTodo('drive');
+
       if (success) {
-          addLog("Leo delivered safely. Time to gamble.");
+          updateState({ 
+              time: 570, // 9:30 AM
+              zoneMode: false 
+          });
+          addLog("Drive: Arrived safely.");
           setPhase(GamePhase.BANKING);
       } else {
-          addLog("Fender bender. Late. Vinnie won't like this.");
+          // Crash penalty
+          updateState({ 
+              time: 600, // Late
+              suspicion: state.suspicion + 15,
+              cash: Math.max(0, state.cash - 100) // Deduct $100 for paramedics
+          });
+          triggerShake();
+          addLog("Drive: Crashed. Paramedics called. Bill: $100.");
           setPhase(GamePhase.BANKING);
       }
   };
@@ -424,34 +445,32 @@ export default function App() {
           addLog("Morning beer. The edge is gone.");
       }
     }
-    setPhase(GamePhase.COMMUTE_MINIGAME);
+    
+    // Determine next phase based on mode and day
+    if (state.mode === GameMode.STANDARD) {
+        if (state.day >= 2 && state.day <= 6) {
+            setPhase(GamePhase.DRIVING_MINIGAME);
+        } else {
+            // Day 1 & 7 - Skip commute game
+            addLog("Commute: Uneventful.");
+            updateState({ time: 570 });
+            setPhase(GamePhase.BANKING);
+        }
+    } else {
+        // Beginner - Keep manual commute decision or auto?
+        // Assuming beginner mode follows script: Day 3 is driving.
+        if (state.day === 3) {
+            setPhase(GamePhase.DRIVING_MINIGAME);
+        } else {
+            addLog("Commute: Traffic was light.");
+            updateState({ time: 570 });
+            setPhase(GamePhase.BANKING);
+        }
+    }
   };
 
   const handleCommute = (safe: boolean) => {
-    if (safe) {
-      if (state.cash < COST_COMMUTE_SAFE) {
-          addLog("Gas tank empty. Forced to risk it.");
-          handleCommute(false);
-          return;
-      }
-      updateState({ 
-          suspicion: Math.max(0, state.suspicion - 5), 
-          cash: state.cash - COST_COMMUTE_SAFE,
-          zoneMode: false,
-          time: 570 
-      });
-      addLog("Drove safe. Arrived at Casino: 9:30 AM.");
-    } else {
-      const success = Math.random() > 0.4;
-      if (success) {
-        updateState({ zoneMode: true, time: 540 });
-        addLog("Drove like a maniac. Arrived early: 9:00 AM.");
-      } else {
-        updateState({ suspicion: state.suspicion + 15, zoneMode: false, time: 570 });
-        triggerShake();
-        addLog("Near miss. Late anyway: 9:30 AM.");
-      }
-    }
+    // Deprecated phase, but kept for type safety
     setPhase(GamePhase.BANKING);
   };
 
@@ -593,6 +612,14 @@ export default function App() {
 
     // Standard Mode Events
     if (newTime >= 900 && !state.skippedPickup) {
+        // Force Drop for Day 1 & 2 Standard
+        if (state.mode === GameMode.STANDARD && state.day <= 2) {
+             addLog("3:00 PM. Picked up Leo automatically.");
+             setPhase(GamePhase.THE_DROP);
+             setAmountToHandle(0);
+             return;
+        }
+
         setPhase(GamePhase.PICKUP_DECISION);
         addLog("ALARM: 3:00 PM. Pick up Leo.");
         return;
@@ -646,7 +673,15 @@ export default function App() {
     if (state.time < 900) {
         addLog("Waiting in car until school ends...");
         updateState({ time: 900 });
-        setPhase(GamePhase.PICKUP_DECISION);
+        
+        // Force Drop for Day 1 & 2 Standard
+        if (state.mode === GameMode.STANDARD && state.day <= 2) {
+             addLog("Picked up Leo automatically.");
+             setPhase(GamePhase.THE_DROP);
+             setAmountToHandle(0);
+        } else {
+             setPhase(GamePhase.PICKUP_DECISION);
+        }
     } else {
         setPhase(GamePhase.THE_DROP);
         setAmountToHandle(0);
@@ -665,8 +700,8 @@ export default function App() {
           }
           // Special Logic for Day 2 Beginner if they can't pay
           if (state.mode === GameMode.BEGINNER && state.day === 2 && amountToHandle < 200 && state.cash < 200) {
-               addLog(`Vinnie: "Short? I'll let it slide... this time."`);
-               finishDrop(); // Proceed anyway
+               setShowVinnieMercy(true);
+               // finishDrop will be called from dialog
                return;
           }
       }
@@ -719,6 +754,8 @@ export default function App() {
   };
   
   const finishDrop = () => {
+      setShowVinnieMercy(false);
+      
       if (state.mode === GameMode.BEGINNER) {
           completeTodo('pay');
           if (state.day === 1) {
@@ -948,6 +985,8 @@ export default function App() {
     );
   };
 
+  const isFullScreenPhase = phase === GamePhase.CASINO || phase === GamePhase.BEGINNER_BLACKJACK;
+
   const renderContent = () => {
     switch (phase) {
       // ... (Existing phases)
@@ -971,20 +1010,22 @@ export default function App() {
           </div>
         );
 
+      // ... other cases ...
+
       case GamePhase.DIFFICULTY_SELECT:
           return (
               <div className="max-w-4xl w-full mx-auto animate-slide-up bg-slate-900/90 border border-slate-700 p-8 rounded-lg relative z-20 shadow-2xl text-center">
                   <h2 className="text-4xl font-serif text-white mb-8">Select Mode</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex justify-center gap-6">
                       {/* Beginner */}
-                      <div className="p-6 border-2 border-emerald-500/50 bg-emerald-900/10 rounded flex flex-col items-center hover:bg-emerald-900/20 transition-colors">
+                      <div className="p-6 border-2 border-emerald-500/50 bg-emerald-900/10 rounded flex flex-col items-center hover:bg-emerald-900/20 transition-colors w-64">
                           <h3 className="text-2xl font-bold text-emerald-400 mb-2">Beginner</h3>
                           <p className="text-sm text-slate-400 mb-4">3 Days. Guided Tutorial. Easier Economy.</p>
                           <Button onClick={() => selectDifficulty(GameMode.BEGINNER)} variant="primary">SELECT</Button>
                       </div>
                       
                       {/* Standard */}
-                      <div className={`p-6 border-2 rounded flex flex-col items-center transition-colors ${state.difficultyCompleted.beginner ? 'border-indigo-500/50 bg-indigo-900/10 hover:bg-indigo-900/20' : 'border-slate-700 bg-slate-800 opacity-60'}`}>
+                      <div className={`p-6 border-2 rounded flex flex-col items-center transition-colors w-64 ${state.difficultyCompleted.beginner ? 'border-indigo-500/50 bg-indigo-900/10 hover:bg-indigo-900/20' : 'border-slate-700 bg-slate-800 opacity-60'}`}>
                           <div className="flex items-center gap-2 mb-2">
                              {!state.difficultyCompleted.beginner && <Lock size={20} />}
                              <h3 className={`text-2xl font-bold ${state.difficultyCompleted.beginner ? 'text-indigo-400' : 'text-slate-500'}`}>Standard</h3>
@@ -993,16 +1034,6 @@ export default function App() {
                           <Button onClick={() => selectDifficulty(GameMode.STANDARD)} disabled={!state.difficultyCompleted.beginner} variant="secondary">
                              {state.difficultyCompleted.beginner ? 'SELECT' : 'LOCKED'}
                           </Button>
-                      </div>
-
-                      {/* Hard */}
-                      <div className="p-6 border-2 border-slate-700 bg-slate-800 opacity-60 rounded flex flex-col items-center">
-                          <div className="flex items-center gap-2 mb-2">
-                             <Lock size={20} />
-                             <h3 className="text-2xl font-bold text-slate-500">Hard</h3>
-                          </div>
-                          <p className="text-sm text-slate-400 mb-4">Unforgiving. Requires Standard Clear.</p>
-                          <Button disabled variant="outline">LOCKED</Button>
                       </div>
                   </div>
               </div>
@@ -1103,17 +1134,17 @@ export default function App() {
                 )}
 
                 <div className="text-center mb-12">
-                    <Landmark className="w-8 h-8 mx-auto text-slate-600 mb-4" />
+                    <Landmark className="w-8 h-8 mx-auto text-slate-500 mb-4" />
                     <h2 className="text-2xl font-serif text-slate-300">City Bank</h2>
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 mb-12">
                     <div className="bg-black/40 border border-slate-800 p-6 text-center">
-                        <span className="text-xs uppercase tracking-widest text-slate-500">Cash</span>
+                        <span className="text-xs uppercase tracking-widest text-slate-400">Cash</span>
                         <div className="text-3xl font-serif text-emerald-500 mt-2">${state.cash}</div>
                     </div>
                     <div className="bg-black/40 border border-slate-800 p-6 text-center">
-                        <span className="text-xs uppercase tracking-widest text-slate-500">Bank</span>
+                        <span className="text-xs uppercase tracking-widest text-slate-400">Bank</span>
                         <div className="text-3xl font-serif text-indigo-400 mt-2">${state.bankBalance}</div>
                     </div>
                 </div>
@@ -1148,7 +1179,9 @@ export default function App() {
           return <CookingMinigame onComplete={handleCookingComplete} />;
 
       case GamePhase.DRIVING_MINIGAME:
-          return <DrivingMinigame onComplete={handleDrivingComplete} />;
+          // In standard mode, retry is only allowed if not drunk? Or simply disallowed as per request.
+          // Request: "No ability to retry driving mini-game in standard or hard mode."
+          return <DrivingMinigame onComplete={handleDrivingComplete} isDrunk={state.drunk} retryAllowed={state.mode === GameMode.BEGINNER} />;
       
       // ... Reusing Existing Phases below ...
       case GamePhase.TUTORIAL:
@@ -1179,16 +1212,16 @@ export default function App() {
             <div className="w-1/2 space-y-8">
                <div>
                   <h2 className="text-3xl font-serif text-slate-200 mb-2">07:45 AM</h2>
-                  <p className="text-slate-500 font-serif text-sm">The mirror reveals the damage.</p>
+                  <p className="text-slate-400 font-serif text-sm">The mirror reveals the damage.</p>
                </div>
                <div className="space-y-4">
                  <button onClick={() => handleMorningRoutine('shave')} className="w-full p-4 border border-slate-700 hover:border-indigo-500/50 hover:bg-indigo-900/10 transition-all text-left group">
                     <span className="block text-slate-300 font-bold mb-1 group-hover:pl-2 transition-all">Shave Clean</span>
-                    <span className="text-xs text-slate-500 font-mono-theme">Cost: ${COST_SHAVE} // -10 Suspicion</span>
+                    <span className="text-xs text-slate-400 font-mono-theme">Cost: ${COST_SHAVE} // -10 Suspicion</span>
                  </button>
                  <button onClick={() => handleMorningRoutine('ignore')} className="w-full p-4 border border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 transition-all text-left group">
                     <span className="block text-slate-300 font-bold mb-1 group-hover:pl-2 transition-all">Ignore Reflection</span>
-                    <span className="text-xs text-slate-500 font-mono-theme">Save Money // Look guilty</span>
+                    <span className="text-xs text-slate-400 font-mono-theme">Save Money // Look guilty</span>
                  </button>
                </div>
             </div>
@@ -1202,65 +1235,41 @@ export default function App() {
             <div className="grid grid-cols-2 gap-12">
               <div onClick={() => handleDrinkChoice('coffee')} className="group cursor-pointer">
                 <div className="w-32 h-32 mx-auto rounded-full border border-slate-700 flex items-center justify-center mb-6 group-hover:border-amber-700 transition-colors bg-slate-900/50">
-                    <Coffee className="w-12 h-12 text-slate-500 group-hover:text-amber-100 transition-colors" />
+                    <Coffee className="w-12 h-12 text-slate-400 group-hover:text-amber-100 transition-colors" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-300 mb-2">Coffee</h3>
-                <p className="text-xs text-slate-500 font-mono-theme">Standard Rules (Dealer 17)</p>
+                <p className="text-xs text-slate-400 font-mono-theme">No sugarcoating. Dealer stands on 17.</p>
               </div>
               <div onClick={() => handleDrinkChoice('beer')} className="group cursor-pointer">
                 <div className="w-32 h-32 mx-auto rounded-full border border-slate-700 flex items-center justify-center mb-6 group-hover:border-amber-500 transition-colors bg-slate-900/50">
-                    <Beer className="w-12 h-12 text-slate-500 group-hover:text-amber-500 transition-colors" />
+                    <Beer className="w-12 h-12 text-slate-400 group-hover:text-amber-500 transition-colors" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-300 mb-2">Beer</h3>
-                <p className="text-xs text-slate-500 font-mono-theme">Dealer Stands on 15 / +Suspicion</p>
+                <p className="text-xs text-slate-400 font-mono-theme">Hair of the Dog. Dealer stands on 15, but the drive to the casino will be bumpy.</p>
               </div>
             </div>
           </div>
         );
 
       case GamePhase.COMMUTE_MINIGAME:
-        return (
-          <div className="flex gap-8 items-center max-w-4xl w-full mx-auto animate-slide-up">
-             <div className="w-1/2 space-y-8 text-right">
-               <div>
-                  <h2 className="text-3xl font-serif text-slate-200 mb-2">The Commute</h2>
-                  <p className="text-slate-500 font-serif text-sm">Taking Leo to school.</p>
-               </div>
-               <div className="space-y-4">
-                 <button onClick={() => handleCommute(true)} className="w-full p-4 border border-slate-700 hover:border-emerald-500/50 hover:bg-emerald-900/10 transition-all text-right group">
-                    <span className="block text-slate-300 font-bold mb-1 group-hover:pr-2 transition-all">Drive Safely</span>
-                    <span className="text-xs text-slate-500 font-mono-theme">Cost: ${COST_COMMUTE_SAFE} // Arrive 9:30</span>
-                 </button>
-                 <button onClick={() => handleCommute(false)} className="w-full p-4 border border-slate-700 hover:border-rose-500/50 hover:bg-rose-900/10 transition-all text-right group">
-                    <span className="block text-slate-300 font-bold mb-1 group-hover:pr-2 transition-all">Weave Through Traffic</span>
-                    <span className="text-xs text-slate-500 font-mono-theme">Free // Arrive 9:00 // Casino 'Zone Mode'</span>
-                 </button>
-               </div>
-            </div>
-            <div className="w-1/2 h-[400px] relative rounded overflow-hidden shadow-2xl grayscale hover:grayscale-0 transition-all duration-1000">
-                 <img src={IMG_LEO_SAD} alt="Leo" className="object-cover w-full h-full" />
-                 <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black to-transparent">
-                     <p className="text-slate-300 font-serif italic text-right">"You smell funny, Dad."</p>
-                 </div>
-            </div>
-          </div>
-        );
+        // Fallback for types, not used in logic
+        return null;
 
       case GamePhase.BANKING:
           return (
             <div className="max-w-3xl w-full mx-auto animate-slide-up">
                 <div className="text-center mb-12">
-                    <Landmark className="w-8 h-8 mx-auto text-slate-600 mb-4" />
+                    <Landmark className="w-8 h-8 mx-auto text-slate-500 mb-4" />
                     <h2 className="text-2xl font-serif text-slate-300">Launder Your Earnings</h2>
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 mb-12">
                     <div className="bg-black/40 border border-slate-800 p-6 text-center">
-                        <span className="text-xs uppercase tracking-widest text-slate-500">Cash in Hand</span>
+                        <span className="text-xs uppercase tracking-widest text-slate-400">Cash in Hand</span>
                         <div className="text-3xl font-serif text-emerald-500 mt-2">${state.cash}</div>
                     </div>
                     <div className="bg-black/40 border border-slate-800 p-6 text-center">
-                        <span className="text-xs uppercase tracking-widest text-slate-500">Bank (Legit)</span>
+                        <span className="text-xs uppercase tracking-widest text-slate-400">Bank (Legit)</span>
                         <div className="text-3xl font-serif text-indigo-400 mt-2">${state.bankBalance}</div>
                     </div>
                 </div>
@@ -1273,7 +1282,7 @@ export default function App() {
                         Buy Flowers (${COST_GIFT})
                     </Button>
                 </div>
-                <p className="text-center text-xs text-slate-500 mt-2 font-mono-theme">Buying gifts reduces suspicion greatly.</p>
+                <p className="text-center text-xs text-slate-400 mt-2 font-mono-theme">Buying gifts reduces suspicion greatly.</p>
                 <div className="mt-12 text-center">
                     <Button onClick={finishBanking} variant="outline" className="w-48">Enter Casino</Button>
                 </div>
@@ -1285,7 +1294,7 @@ export default function App() {
           <div className="w-full h-full animate-slide-up relative flex items-center justify-center">
              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_20%,#000000_100%)] z-0 opacity-50"></div>
              
-             <div className={`transition-all duration-500 ${phoneMode !== 'NOTES' && phoneMode !== 'TODO' ? 'opacity-30 blur-sm pointer-events-none' : 'opacity-100'}`}>
+             <div className={`w-full h-full transition-all duration-500 ${phoneMode !== 'NOTES' && phoneMode !== 'TODO' ? 'opacity-30 blur-sm pointer-events-none' : 'opacity-100'}`}>
                 <Blackjack 
                     drunkMode={state.drunk} 
                     zoneMode={state.zoneMode}
@@ -1308,12 +1317,12 @@ export default function App() {
                      <button onClick={() => handlePickupDecision('home')} className="group p-8 border border-slate-700 bg-slate-900/50 hover:bg-emerald-900/20 hover:border-emerald-500 transition-all rounded-lg">
                         <Home className="w-12 h-12 mx-auto text-slate-500 group-hover:text-emerald-400 mb-4 transition-colors" />
                         <h3 className="text-xl font-bold text-slate-200 mb-2">Go Home</h3>
-                        <p className="text-xs text-slate-500 font-mono-theme">Be a father. End the day.</p>
+                        <p className="text-xs text-slate-400 font-mono-theme">Be a father. End the day.</p>
                      </button>
                      <button onClick={() => handlePickupDecision('casino')} className="group p-8 border border-slate-700 bg-slate-900/50 hover:bg-rose-900/20 hover:border-rose-500 transition-all rounded-lg">
                         <Dices className="w-12 h-12 mx-auto text-slate-500 group-hover:text-rose-400 mb-4 transition-colors" />
                         <h3 className="text-xl font-bold text-slate-200 mb-2">Back to Casino</h3>
-                        <p className="text-xs text-slate-500 font-mono-theme">Just one more hand. (+30 Suspicion)</p>
+                        <p className="text-xs text-slate-400 font-mono-theme">Just one more hand. (+30 Suspicion)</p>
                      </button>
                 </div>
             </div>
@@ -1331,13 +1340,32 @@ export default function App() {
           }
 
           return (
-             <div className="max-w-lg w-full mx-auto animate-slide-up text-center">
+             <div className="max-w-lg w-full mx-auto animate-slide-up text-center relative z-20">
+                 {/* Vinnie Placeholder Overlay */}
+                 {showVinnieMercy && (
+                     <div onClick={finishDrop} className="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-8 rounded-lg cursor-pointer animate-fade-in border border-emerald-900">
+                         <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-emerald-600 mb-6 grayscale shadow-[0_0_20px_rgba(5,150,105,0.3)]">
+                            <img src={IMG_VINNIE} className="w-full h-full object-cover" />
+                         </div>
+                         <h3 className="text-2xl font-serif text-white mb-2">VINNIE</h3>
+                         <p className="text-slate-300 text-lg font-serif italic text-center leading-relaxed">
+                            "I'll let it slide... this time."
+                         </p>
+                         <p className="mt-8 text-xs text-slate-500 uppercase tracking-widest animate-pulse">Click to Continue</p>
+                     </div>
+                 )}
+
                  <h2 className="text-4xl font-serif text-rose-700 mb-8 tracking-widest">THE DROP</h2>
                  
-                 <div className="bg-black/80 p-8 border border-rose-900/30 shadow-[0_0_50px_rgba(225,29,72,0.1)] mb-8">
-                     <p className="text-slate-500 text-sm mb-6 font-mono-theme">Vinnie is waiting in the alley.</p>
+                 <div className="bg-black/80 p-8 border border-rose-900/30 shadow-[0_0_50px_rgba(225,29,72,0.1)] mb-8 relative overflow-hidden">
+                     {/* Vinnie Background Presence */}
+                     <div className="absolute top-0 right-0 w-32 h-32 opacity-20 pointer-events-none mix-blend-overlay">
+                        <img src={IMG_VINNIE} className="w-full h-full object-cover" />
+                     </div>
+
+                     <p className="text-slate-400 text-sm mb-6 font-mono-theme relative z-10">Vinnie is waiting in the alley.</p>
                      
-                     <div className="space-y-4 font-serif">
+                     <div className="space-y-4 font-serif relative z-10">
                          <div className="border-t border-slate-800 pt-4 flex justify-between text-rose-500 text-xl">
                              <span>DUE TODAY</span>
                              <span>${required}</span>
@@ -1377,6 +1405,7 @@ export default function App() {
              </div> 
           );
 
+      // ... existing phases ...
       case GamePhase.EVENING_INTERROGATION:
         if (!currentEvent) return null;
         return (
@@ -1414,16 +1443,16 @@ export default function App() {
           <div className="text-center space-y-12 animate-slide-up py-12">
              <div>
                  <h2 className="text-6xl font-serif text-slate-200 mb-4">Night Falls</h2>
-                 <p className="text-slate-500 font-serif italic">You survived Day {state.day}.</p>
+                 <p className="text-slate-400 font-serif italic">You survived Day {state.day}.</p>
              </div>
              
              <div className="flex justify-center gap-12 text-left">
                 <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-600 mb-1">Debt Remaining</div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Debt Remaining</div>
                     <div className="text-4xl text-rose-700 font-serif">${state.debt}</div>
                 </div>
                 <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-600 mb-1">Bank Balance</div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Bank Balance</div>
                     <div className="text-4xl text-indigo-400 font-serif">${state.bankBalance}</div>
                 </div>
              </div>
@@ -1527,7 +1556,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="relative w-full h-full flex flex-col items-center justify-center p-8 z-10">
+      <div className={`relative w-full h-full flex flex-col items-center justify-center ${isFullScreenPhase ? 'p-0' : 'p-8'} z-10`}>
         {renderContent()}
       </div>
 

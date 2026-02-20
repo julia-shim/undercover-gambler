@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Suit } from '../types';
 import { createDeck } from '../constants';
 import { Button, CardDisplay } from './UI';
-import { Play, Hand as HandIcon, Ban, LogOut, Zap, GraduationCap, ChevronRight } from 'lucide-react';
+import { Play, Hand as HandIcon, Ban, LogOut, Zap, GraduationCap, ChevronRight, HelpCircle } from 'lucide-react';
 
 interface BlackjackProps {
   drunkMode: boolean;
@@ -10,8 +10,8 @@ interface BlackjackProps {
   cash: number;
   onGameEnd: (netChange: number, suspicionIncrease: number) => void;
   onExit: () => void;
-  tutorialMode?: boolean; // New Prop
-  onTutorialComplete?: () => void; // New Prop
+  tutorialMode?: boolean; 
+  onTutorialComplete?: () => void; 
 }
 
 type HandStatus = 'betting' | 'playing' | 'dealerTurn' | 'finished';
@@ -72,15 +72,17 @@ export const Blackjack: React.FC<BlackjackProps> = ({ drunkMode, zoneMode, cash,
   const [zoneHandsLeft, setZoneHandsLeft] = useState(zoneMode ? 5 : 0);
   
   // Tutorial State
-  const [tutorialStep, setTutorialStep] = useState(0); // 0 = not started, 1-4 scenarios
-  const [tutorialSubStep, setTutorialSubStep] = useState(0); // For multi-hit hands
+  const [tutorialStep, setTutorialStep] = useState(0); 
+  const [tutorialSubStep, setTutorialSubStep] = useState(0); 
+  const [tutorialPhase, setTutorialPhase] = useState<'intro' | 'bet_setup' | 'playing'>('intro');
 
   // Initialize deck on mount
   useEffect(() => {
     if (!tutorialMode) {
       setDeck(createDeck());
     } else {
-      setBet(50); // Force bet to 50 for tutorial
+      setBet(50); 
+      setTutorialPhase('intro');
     }
   }, [tutorialMode]);
 
@@ -229,14 +231,10 @@ export const Blackjack: React.FC<BlackjackProps> = ({ drunkMode, zoneMode, cash,
     if (tutorialMode) {
         // Calculate tutorial win
         let win = 0;
-        // Scenario 1: Win
-        if (tutorialStep === 0) win = 50;
-        // Scenario 2: Win (Blackjack)
-        if (tutorialStep === 1) win = 50;
-        // Scenario 3: Push
+        if (tutorialStep === 0) win = bet;
+        if (tutorialStep === 1) win = bet;
         if (tutorialStep === 2) win = 0;
-        // Scenario 4: Win
-        if (tutorialStep === 3) win = 50;
+        if (tutorialStep === 3) win = bet;
 
         onGameEnd(win, 0); 
 
@@ -265,24 +263,42 @@ export const Blackjack: React.FC<BlackjackProps> = ({ drunkMode, zoneMode, cash,
 
   // Helper logic for button states in tutorial
   const canHit = !tutorialMode || (
-      // Allow hitting only if scenario requires it AND we haven't reached the "Stand" phase
       ((TUTORIAL_SCENARIOS[tutorialStep]?.forceAction === 'hit') && tutorialSubStep === 0) ||
-      (tutorialStep === 3 && tutorialSubStep === 1) // Hand 4 second hit
+      (tutorialStep === 3 && tutorialSubStep === 1) 
   );
 
   const canStand = !tutorialMode || (
       (TUTORIAL_SCENARIOS[tutorialStep]?.forceAction === 'stand') ||
-      (tutorialStep === 0 && tutorialSubStep === 1) || // Hand 1 after hit
-      (tutorialStep === 3 && tutorialSubStep === 2)    // Hand 4 after 2 hits
+      (tutorialStep === 0 && tutorialSubStep === 1) || 
+      (tutorialStep === 3 && tutorialSubStep === 2)    
   );
 
+  // --- TUTORIAL INTRO SCREEN ---
+  if (tutorialMode && tutorialPhase === 'intro') {
+      return (
+          <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+              <div className="bg-slate-900 border border-slate-700 p-8 rounded-lg max-w-md shadow-2xl">
+                  <HelpCircle className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                  <h2 className="text-2xl font-serif text-white mb-4">Memory Check</h2>
+                  <p className="text-slate-300 text-lg italic mb-8 leading-relaxed">
+                      "Been a while since you've played Blackjack, huh? Let's jog your memory."
+                  </p>
+                  <Button onClick={() => setTutorialPhase('bet_setup')} variant="primary" fullWidth>Okay</Button>
+              </div>
+          </div>
+      );
+  }
+
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-between py-6">
+    <div className="relative w-full h-full flex flex-col items-center justify-between py-6 bg-[#1a472a] shadow-[inset_0_0_100px_rgba(0,0,0,0.5)] overflow-hidden">
+      {/* Felt Texture Overlay */}
+      <div className="absolute inset-0 opacity-30 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
+      
       {/* Dealer Area */}
-      <div className="flex flex-col items-center gap-4 mt-8">
-        <div className="flex items-center gap-2 text-slate-500 font-mono-theme text-xs tracking-[0.2em] uppercase">
+      <div className="flex flex-col items-center gap-4 mt-8 relative z-10">
+        <div className="flex items-center gap-2 text-green-200/60 font-mono-theme text-xs tracking-[0.2em] uppercase">
           <span>The House</span>
-          {status !== 'playing' && dealerHand.length > 0 && <span className="bg-slate-800 px-2 py-0.5 rounded text-slate-300">{calculateScore(dealerHand)}</span>}
+          {status !== 'playing' && dealerHand.length > 0 && <span className="bg-black/40 px-2 py-0.5 rounded text-white">{calculateScore(dealerHand)}</span>}
         </div>
         <div className="flex -space-x-8 h-40 items-center">
           {dealerHand.map((card, i) => (
@@ -295,64 +311,87 @@ export const Blackjack: React.FC<BlackjackProps> = ({ drunkMode, zoneMode, cash,
               />
             </div>
           ))}
-          {dealerHand.length === 0 && <div className="w-24 h-36 border-2 border-dashed border-slate-700 rounded-lg opacity-20" />}
+          {dealerHand.length === 0 && <div className="w-24 h-36 border-2 border-dashed border-green-800 rounded-lg opacity-20" />}
         </div>
       </div>
 
       {/* Center Table Status */}
-      <div className="flex flex-col items-center justify-center my-4 min-h-[6rem] text-center max-w-lg">
+      <div className="flex flex-col items-center justify-center my-4 min-h-[6rem] text-center max-w-lg relative z-10">
         {!tutorialMode && (
-             <div className="text-emerald-500/80 font-mono-theme text-xs tracking-[0.3em] uppercase mb-2">
+             <div className="text-yellow-400/60 font-mono-theme text-xs tracking-[0.3em] uppercase mb-2">
                 Pays 1 to 1 &bull; Dealer stands on {drunkMode ? 15 : 17}
              </div>
         )}
-        <h2 className="text-2xl md:text-3xl font-bold text-white tracking-widest drop-shadow-[0_0_10px_rgba(255,255,255,0.3)] animate-pulse">
+        <h2 className="text-2xl md:text-3xl font-bold text-white tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] animate-pulse">
             {message}
         </h2>
-        {tutorialMode && (
-             <div className="mt-2 text-indigo-400 font-serif italic text-sm border-t border-indigo-900 pt-2">
+        {tutorialMode && tutorialPhase === 'bet_setup' && (
+             <div className="mt-2 text-yellow-300 font-serif italic text-sm border-t border-white/20 pt-2 animate-pulse">
+                 Increase your wager to $100 to start.
+             </div>
+        )}
+        {tutorialMode && tutorialPhase === 'playing' && (
+             <div className="mt-2 text-white/70 font-serif italic text-sm border-t border-white/20 pt-2">
                  TUTORIAL: Follow the instructions.
              </div>
         )}
       </div>
 
       {/* Player Area */}
-      <div className="flex flex-col items-center gap-4 mb-8">
+      <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
         <div className="flex -space-x-8 h-40 items-center">
           {playerHand.map((card, i) => (
             <div key={`${i}-${card.suit}-${card.value}`} className="transform transition-all duration-500 hover:-translate-y-4">
               <CardDisplay suit={card.suit} value={card.value} delay={i * 200 + 500} />
             </div>
           ))}
-          {playerHand.length === 0 && <div className="w-24 h-36 border-2 border-dashed border-slate-700 rounded-lg opacity-20" />}
+          {playerHand.length === 0 && <div className="w-24 h-36 border-2 border-dashed border-green-800 rounded-lg opacity-20" />}
         </div>
-        <div className="flex items-center gap-2 text-slate-500 font-mono-theme text-xs tracking-[0.2em] uppercase">
+        <div className="flex items-center gap-2 text-green-200/60 font-mono-theme text-xs tracking-[0.2em] uppercase">
           <span>You</span>
-          {playerHand.length > 0 && <span className="bg-slate-800 px-2 py-0.5 rounded text-indigo-300">{calculateScore(playerHand)}</span>}
+          {playerHand.length > 0 && <span className="bg-black/40 px-2 py-0.5 rounded text-white">{calculateScore(playerHand)}</span>}
         </div>
       </div>
 
       {/* Interaction Bar */}
-      <div className="w-full max-w-4xl bg-slate-900/90 backdrop-blur border-t border-slate-700 p-6 rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20">
+      <div className="w-full max-w-4xl bg-black/80 backdrop-blur border-t border-white/10 p-6 rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20">
         {status === 'betting' || status === 'finished' ? (
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-             {!tutorialMode ? (
-                 <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-slate-800">
-                    <button onClick={() => setBet(Math.max(10, bet - 50))} className="text-slate-500 hover:text-white transition-colors text-2xl font-bold w-8 h-8">-</button>
+             {(!tutorialMode || tutorialPhase === 'bet_setup') ? (
+                 <div className="flex items-center gap-6 bg-white/5 px-6 py-3 rounded-full border border-white/10">
+                    <button 
+                        onClick={() => setBet(Math.max(10, bet - 50))} 
+                        disabled={tutorialMode} 
+                        className={`text-slate-400 hover:text-white transition-colors text-2xl font-bold w-8 h-8 ${tutorialMode ? 'opacity-20' : ''}`}
+                    >
+                        -
+                    </button>
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] text-slate-500 uppercase tracking-widest">Wager</span>
+                        <span className="text-[10px] text-slate-400 uppercase tracking-widest">Wager</span>
                         <span className="text-2xl font-mono-theme font-bold text-emerald-400">${bet}</span>
                     </div>
-                    <button onClick={() => setBet(Math.min(cash, bet + 50))} className="text-slate-500 hover:text-white transition-colors text-2xl font-bold w-8 h-8">+</button>
+                    <button 
+                        onClick={() => {
+                            const newBet = Math.min(cash, bet + 50);
+                            setBet(newBet);
+                            if(tutorialMode && newBet >= 100) {
+                                setTutorialPhase('playing');
+                            }
+                        }} 
+                        disabled={tutorialMode && bet >= 100}
+                        className="text-slate-400 hover:text-white transition-colors text-2xl font-bold w-8 h-8"
+                    >
+                        +
+                    </button>
                  </div>
              ) : (
-                 <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-slate-800 opacity-70 cursor-not-allowed">
-                    <button disabled className="text-slate-700 text-2xl font-bold w-8 h-8">-</button>
+                 <div className="flex items-center gap-6 bg-white/5 px-6 py-3 rounded-full border border-white/10 opacity-70 cursor-not-allowed">
+                    <button disabled className="text-slate-500 text-2xl font-bold w-8 h-8">-</button>
                     <div className="flex flex-col items-center">
                         <span className="text-[10px] text-slate-500 uppercase tracking-widest">Locked</span>
-                        <span className="text-2xl font-mono-theme font-bold text-emerald-400">$50</span>
+                        <span className="text-2xl font-mono-theme font-bold text-emerald-400">${bet}</span>
                     </div>
-                    <button disabled className="text-slate-700 text-2xl font-bold w-8 h-8">+</button>
+                    <button disabled className="text-slate-500 text-2xl font-bold w-8 h-8">+</button>
                  </div>
              )}
              
@@ -370,7 +409,13 @@ export const Blackjack: React.FC<BlackjackProps> = ({ drunkMode, zoneMode, cash,
                        <Button onClick={onExit} variant="primary" icon={GraduationCap}>Finish & Leave</Button>
                    </div>
                ) : (
-                   <Button onClick={startHand} disabled={!tutorialMode && cash < bet} icon={Play} variant="primary" className="flex-1 md:flex-none">
+                   <Button 
+                       onClick={startHand} 
+                       disabled={(!tutorialMode && cash < bet) || (tutorialMode && bet < 100)} 
+                       icon={Play} 
+                       variant="primary" 
+                       className="flex-1 md:flex-none"
+                   >
                      {tutorialMode ? 'Next Hand' : 'Deal Hand'}
                    </Button>
                )}

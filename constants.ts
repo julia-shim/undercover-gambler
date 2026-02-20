@@ -16,11 +16,6 @@ export const STANDARD_DEBT = 2500;
 export const STANDARD_CASH = 700;
 export const STANDARD_BANK = 400;
 
-// Hard (TBD)
-export const HARD_DEBT = 0;
-export const HARD_CASH = 0;
-export const HARD_BANK = 0;
-
 // Legacy exports for type safety if needed, though they will be replaced in usage
 export const INITIAL_DEBT = STANDARD_DEBT;
 export const INITIAL_CASH = STANDARD_CASH;

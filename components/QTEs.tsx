@@ -4,6 +4,8 @@ import { Check, X, Search, Droplet, Sprout, Waves, ChefHat, Car, AlertTriangle, 
 
 interface QTEProps {
   onComplete: (success: boolean) => void;
+  isDrunk?: boolean;
+  retryAllowed?: boolean;
 }
 
 // Helper for QTE Intro Overlay
@@ -13,7 +15,7 @@ const QTETutorialOverlay: React.FC<{
   onStart: () => void;
 }> = ({ title, description, onStart }) => (
   <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-8 text-center animate-fade-in rounded-lg">
-     <Info className="w-12 h-12 text-slate-500 mb-4" />
+     <Info className="w-12 h-12 text-slate-400 mb-4" />
      <h2 className="text-3xl font-serif text-white mb-2 uppercase tracking-widest">{title}</h2>
      <div className="w-16 h-1 bg-rose-500 mb-6"></div>
      <p className="text-lg font-serif text-slate-300 italic mb-8 max-w-md leading-relaxed">
@@ -72,7 +74,7 @@ export const BedMaking: React.FC<QTEProps> = ({ onComplete }) => {
       
       <div className="w-full flex flex-col items-center">
         <h2 className="text-3xl font-serif text-slate-200 mb-2">Make the Bed</h2>
-        <p className="text-slate-500 mb-6 font-mono-theme text-xs">Smooth the wrinkles. Be quick. ({timeLeft}s)</p>
+        <p className="text-slate-400 mb-6 font-mono-theme text-xs">Smooth the wrinkles. Be quick. ({timeLeft}s)</p>
         
         <div className="relative w-full h-80 bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-2xl cursor-default select-none group">
           <img 
@@ -144,7 +146,7 @@ export const WaterPlants: React.FC<QTEProps> = ({ onComplete }) => {
             )}
             <div className="w-full flex flex-col items-center">
                 <h2 className="text-3xl font-serif text-slate-200 mb-2">Act Normal</h2>
-                <p className="text-slate-500 mb-8 font-mono-theme text-xs">Water the dead plants. Look busy. ({timeLeft}s)</p>
+                <p className="text-slate-400 mb-8 font-mono-theme text-xs">Water the dead plants. Look busy. ({timeLeft}s)</p>
 
                 <div className="flex gap-8 justify-center">
                     {plants.map((watered, i) => (
@@ -162,11 +164,11 @@ export const WaterPlants: React.FC<QTEProps> = ({ onComplete }) => {
                                 <Sprout size={48} className="text-emerald-400 mb-2 animate-bounce" />
                             ) : (
                                 <div className="relative">
-                                    <Sprout size={48} className="text-slate-600 mb-2" />
+                                    <Sprout size={48} className="text-slate-500 mb-2" />
                                     <Droplet size={24} className="text-blue-400 absolute -top-4 -right-4 animate-pulse" />
                                 </div>
                             )}
-                            <span className={`text-xs font-mono-theme uppercase ${watered ? 'text-emerald-400' : 'text-slate-500'}`}>
+                            <span className={`text-xs font-mono-theme uppercase ${watered ? 'text-emerald-400' : 'text-slate-400'}`}>
                                 {watered ? 'Watered' : 'Dry'}
                             </span>
                         </button>
@@ -224,7 +226,7 @@ export const LunchMaking: React.FC<QTEProps> = ({ onComplete }) => {
        )}
        <div className="w-full flex flex-col items-center">
             <h2 className="text-3xl font-serif text-slate-200 mb-2">Leo's Lunch</h2>
-            <p className="text-slate-500 mb-6 font-mono-theme text-xs">Bread, Mayo, Ham, Cheese, Bread. No mistakes.</p>
+            <p className="text-slate-400 mb-6 font-mono-theme text-xs">Bread, Mayo, Ham, Cheese, Bread. No mistakes.</p>
 
             <div className="flex gap-8 items-center w-full">
                 {/* Ingredients */}
@@ -246,7 +248,7 @@ export const LunchMaking: React.FC<QTEProps> = ({ onComplete }) => {
                     {status === 'won' && <div className="absolute inset-0 flex items-center justify-center bg-emerald-900/50 z-10"><Check size={48} className="text-emerald-400" /></div>}
                     {status === 'lost' && <div className="absolute inset-0 flex items-center justify-center bg-rose-900/50 z-10"><X size={48} className="text-rose-400" /></div>}
                     
-                    <div className="text-slate-600 text-xs absolute top-2 right-2">Plate</div>
+                    <div className="text-slate-500 text-xs absolute top-2 right-2">Plate</div>
                     
                     {sequence.map((item, i) => {
                         const ing = ingredients.find(x => x.name === item);
@@ -304,7 +306,7 @@ export const FindKeys: React.FC<QTEProps> = ({ onComplete }) => {
         )}
         <div className="w-full flex flex-col items-center">
             <h2 className="text-3xl font-serif text-slate-200 mb-2">Where are the keys?</h2>
-            <p className="text-slate-500 mb-8 font-mono-theme text-xs">Check the piles. Quick. ({timeLeft}s)</p>
+            <p className="text-slate-400 mb-8 font-mono-theme text-xs">Check the piles. Quick. ({timeLeft}s)</p>
     
             <div className="relative w-96 h-64 bg-slate-800 rounded-lg border border-slate-700 shadow-2xl overflow-hidden mx-auto bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')]">
                 {/* The Keys (Hidden under one pile) */}
@@ -351,20 +353,31 @@ export const CookingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
     const [stirProgress, setStirProgress] = useState(0);
     
     // Added Timer for Suspicion Element
-    const [timeLeft, setTimeLeft] = useState(10); 
+    const [timeLeft, setTimeLeft] = useState(15); 
     const [failed, setFailed] = useState(false);
+    
+    // Use Ref for stirProgress to access in interval without resetting it
+    const stirRef = useRef(0);
 
     useEffect(() => {
-        if(!started || failed || stirProgress >= 100) return;
+        if(!started || failed) return;
         
-        if (timeLeft > 0) {
-            const timer = setTimeout(() => setTimeLeft(t => t - 1), 1000);
-            return () => clearTimeout(timer);
-        } else {
-            setFailed(true);
-            setTimeout(() => onComplete(false), 1500); // Fail
-        }
-    }, [timeLeft, started, failed, stirProgress, onComplete]);
+        const timer = setInterval(() => {
+            if (stirRef.current >= 100) return; // Don't tick if finished
+            
+            setTimeLeft(prev => {
+                if (prev <= 0) {
+                    clearInterval(timer);
+                    setFailed(true);
+                    setTimeout(() => onComplete(false), 1500); // Fail
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [started, failed, onComplete]); // Removed stirProgress/step dependencies
     
     // Check Chop Step
     useEffect(() => {
@@ -392,8 +405,12 @@ export const CookingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (step !== 'stir') return;
-        // Simple progress based on movement
-        setStirProgress(prev => Math.min(100, prev + 0.8)); // Slightly faster to be fair with timer
+        
+        setStirProgress(prev => {
+            const next = Math.min(100, prev + 0.8);
+            stirRef.current = next;
+            return next;
+        });
     };
 
     const handleFinish = () => {
@@ -416,7 +433,7 @@ export const CookingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
                     <p className={`text-xl font-mono-theme font-bold ${timeLeft < 5 ? 'text-rose-500 animate-pulse' : 'text-slate-400'}`}>
                         {timeLeft}s
                     </p>
-                    <p className="text-slate-500 font-mono-theme text-xs uppercase tracking-widest">
+                    <p className="text-slate-400 font-mono-theme text-xs uppercase tracking-widest">
                         {step === 'chop' && "Click veggies to chop"}
                         {step === 'pot' && "Click items to add"}
                         {step === 'stir' && "Move cursor to stir"}
@@ -476,7 +493,7 @@ export const CookingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
 };
 
 // --- DRIVING MINIGAME ---
-export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
+export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete, isDrunk, retryAllowed = true }) => {
     const [status, setStatus] = useState<'intro' | 'playing' | 'crashed' | 'won'>('intro');
     const [carY, setCarY] = useState(50); // % from top
     const [obstacles, setObstacles] = useState<{id: number, x: number, y: number}[]>([]);
@@ -503,9 +520,10 @@ export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
                 const lastObs = prev[prev.length - 1];
                 let shouldSpawn = false;
                 
-                // If no obstacles, or last obstacle has moved far enough left (x < 60)
-                // AND random check passes. Reduced probability from 0.08 to 0.04 for sparseness.
-                if ((!lastObs || lastObs.x < 60) && Math.random() < 0.04) {
+                // If drunk, double the spawn chance from 0.04 to 0.08
+                const spawnChance = isDrunk ? 0.08 : 0.04;
+                
+                if ((!lastObs || lastObs.x < 60) && Math.random() < spawnChance) {
                     shouldSpawn = true;
                 }
 
@@ -523,7 +541,7 @@ export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
         }, 20);
 
         return () => clearInterval(interval);
-    }, [status]);
+    }, [status, isDrunk]); // Added isDrunk dependency
 
     // Collision Detection
     useEffect(() => {
@@ -564,7 +582,7 @@ export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
                 <h2 className="text-3xl font-serif text-slate-200 mb-2">Drive to School</h2>
                 
                 {/* HUD */}
-                <div className="w-full max-w-2xl flex justify-between text-xs font-mono-theme text-slate-500 mb-2 uppercase tracking-widest">
+                <div className="w-full max-w-2xl flex justify-between text-xs font-mono-theme text-slate-400 mb-2 uppercase tracking-widest">
                     <span>Distance</span>
                     <span>{Math.floor(progress)}%</span>
                 </div>
@@ -581,10 +599,10 @@ export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
                         <div className="w-full h-2 bg-slate-500 border-b border-dashed border-slate-900"></div>
                         <div className="w-full h-2 bg-slate-500 border-b border-dashed border-slate-900"></div>
                     </div>
-
+                    
                     {/* Player Car */}
                     <div 
-                        className="absolute left-[10%] w-16 h-10 bg-emerald-600 rounded-md shadow-lg flex items-center justify-center z-20 transition-all duration-75 ease-linear"
+                        className={`absolute left-[10%] w-16 h-10 bg-emerald-600 rounded-md shadow-lg flex items-center justify-center z-20 transition-all duration-75 ease-linear`}
                         style={{ top: `${carY}%`, transform: 'translateY(-50%)' }}
                     >
                         <Car className="text-white w-6 h-6 -rotate-90" />
@@ -618,13 +636,17 @@ export const DrivingMinigame: React.FC<QTEProps> = ({ onComplete }) => {
                             <h3 className="text-3xl font-bold text-rose-500 mb-2">CRASHED</h3>
                             <p className="text-slate-400 mb-8">You hit a roadblock.</p>
                             <div className="flex gap-4">
-                                <Button onClick={() => {
-                                    setStatus('playing');
-                                    setObstacles([]);
-                                    setProgress(0);
-                                    setCarY(50);
-                                }} variant="secondary">TRY AGAIN</Button>
-                                <Button onClick={() => onComplete(false)} variant="danger">GIVE UP (LATE)</Button>
+                                {retryAllowed && (
+                                    <Button onClick={() => {
+                                        setStatus('playing');
+                                        setObstacles([]);
+                                        setProgress(0);
+                                        setCarY(50);
+                                    }} variant="secondary">TRY AGAIN</Button>
+                                )}
+                                <Button onClick={() => onComplete(false)} variant="danger">
+                                    {retryAllowed ? "GIVE UP (LATE)" : "LATE"}
+                                </Button>
                             </div>
                         </div>
                     )}

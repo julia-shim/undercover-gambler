@@ -1,8 +1,7 @@
 
 export enum GameMode {
   BEGINNER = 'BEGINNER',
-  STANDARD = 'STANDARD',
-  HARD = 'HARD'
+  STANDARD = 'STANDARD'
 }
 
 export enum GamePhase {

@@ -23,7 +23,7 @@ export const Button: React.FC<ButtonProps> = ({
     secondary: "text-slate-300 bg-slate-900/50 border border-slate-700/50 hover:bg-slate-800/60 hover:text-white hover:border-slate-500",
     danger: "text-rose-100 bg-rose-950/30 border border-rose-900/50 hover:bg-rose-900/40 hover:border-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.1)]",
     outline: "text-slate-400 border border-slate-800 hover:border-slate-600 hover:text-slate-200 bg-transparent",
-    ghost: "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+    ghost: "text-slate-400 hover:text-slate-300 hover:bg-white/5"
   };
 
   return (
@@ -34,25 +34,23 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-export const ProgressBar: React.FC<{ value: number; max: number; label: string; color?: string }> = ({ value, max, label, color = "bg-rose-500" }) => {
+export const ProgressBar: React.FC<{ value: number; max: number; label: string; color?: string }> = ({ value, max, label, color = "bg-rose-600" }) => {
   const percentage = Math.min(100, Math.max(0, (value / max) * 100));
   
   return (
     <div className="w-full group">
-      <div className="flex justify-between items-end mb-1 opacity-60 group-hover:opacity-100 transition-opacity">
-        <span className="text-[10px] uppercase tracking-[0.2em] font-serif text-slate-400">{label}</span>
+      <div className="flex justify-between items-end mb-2 opacity-80 group-hover:opacity-100 transition-opacity">
+        <span className="text-xs uppercase tracking-[0.2em] font-serif text-slate-300 font-bold">{label}</span>
+        <span className="text-xs font-mono-theme text-rose-500">{Math.floor(percentage)}%</span>
       </div>
-      {/* Ultra thin, elegant line */}
-      <div className="h-[2px] w-full bg-slate-800 relative overflow-visible">
+      {/* Intense Bar */}
+      <div className="h-3 w-full bg-slate-900 border border-slate-700 relative overflow-hidden rounded-sm shadow-inner">
         <div 
-          className={`h-full ${color} transition-all duration-1000 ease-out shadow-[0_0_10px_currentColor]`} 
+          className={`h-full ${color} transition-all duration-700 ease-out shadow-[0_0_15px_currentColor] relative`} 
           style={{ width: `${percentage}%` }}
-        />
-        {/* Glow point at the end of the bar */}
-        <div 
-           className={`absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${color.replace('bg-', 'text-')} shadow-[0_0_10px_currentColor] transition-all duration-1000 ease-out`}
-           style={{ left: `${percentage}%`, opacity: percentage > 0 ? 1 : 0 }}
-        />
+        >
+            <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+        </div>
       </div>
     </div>
   );
@@ -72,11 +70,11 @@ export const CardDisplay: React.FC<{ suit: string; value: string; hidden?: boole
   }
 
   const isRed = suit === '♥' || suit === '♦';
-  const colorClass = isRed ? 'text-rose-700' : 'text-slate-800';
+  const colorClass = isRed ? 'text-rose-600' : 'text-slate-900';
   
   return (
     <div 
-      className="w-24 h-36 bg-[#dcdcdc] rounded shadow-[0_10px_30px_rgba(0,0,0,0.5)] relative overflow-hidden animate-deal group transition-transform hover:-translate-y-2 duration-500 ease-out"
+      className="w-24 h-36 bg-[#e2e2e2] rounded shadow-[0_10px_30px_rgba(0,0,0,0.5)] relative overflow-hidden animate-deal group transition-transform hover:-translate-y-2 duration-500 ease-out"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] opacity-20"></div>
@@ -103,11 +101,11 @@ export const CardDisplay: React.FC<{ suit: string; value: string; hidden?: boole
 
 export const StatBadge: React.FC<{ icon: LucideIcon, label: string, value: string | number, highlight?: boolean, danger?: boolean }> = ({ icon: Icon, label, value, highlight, danger }) => (
   <div className={`flex flex-col items-center px-4 py-2 min-w-[80px] transition-colors duration-500`}>
-    <span className="text-[9px] uppercase tracking-[0.25em] text-slate-500 mb-1 flex items-center gap-1.5 opacity-70">
+    <span className="text-[9px] uppercase tracking-[0.25em] text-slate-400 mb-1 flex items-center gap-1.5 opacity-80">
        {label}
     </span>
     <div className="flex items-center gap-2">
-        <span className={`font-serif text-lg tracking-wide ${danger ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(225,29,72,0.3)]' : highlight ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]' : 'text-slate-300'}`}>
+        <span className={`font-serif text-lg tracking-wide ${danger ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(225,29,72,0.3)]' : highlight ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]' : 'text-slate-200'}`}>
         {value}
         </span>
     </div>
